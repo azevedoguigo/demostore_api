@@ -1,0 +1,51 @@
+package server
+
+import (
+	"log"
+	"net/http"
+
+	"github.com/azevedoguigo/demostore_api.git/internal/config"
+	"github.com/azevedoguigo/demostore_api.git/internal/handler"
+	"github.com/azevedoguigo/demostore_api.git/internal/repository"
+	"github.com/azevedoguigo/demostore_api.git/internal/service"
+	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+)
+
+type Server struct {
+	router *chi.Mux
+	config *config.Config
+}
+
+func NewServer(cfg *config.Config) *Server {
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	return &Server{
+		router: r,
+		config: cfg,
+	}
+}
+
+func (s *Server) SetupRoutes() {
+	db, err := repository.NewPostgresDB(s.config)
+	if err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+
+	userRepo := repository.NewUserRepository(db)
+	userService := service.NewUserService(userRepo)
+	userHandler := handler.NewUserHandler(userService)
+
+	s.router.Route("/api/v1/users", func(r chi.Router) {
+		r.Post("/", userHandler.CreateUser)
+	})
+}
+
+func (s *Server) Start() {
+	log.Printf("Server starting on port %s", s.config.ServerPort)
+	if err := http.ListenAndServe(":"+s.config.ServerPort, s.router); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
+}
