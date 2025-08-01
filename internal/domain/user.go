@@ -16,3 +16,7 @@ type User struct {
 type UserRepository interface {
 	Create(user *User) error
 }
+
+func (u *User) BindID() {
+	u.ID = uuid.New()
+}
