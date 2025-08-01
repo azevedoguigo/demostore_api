@@ -2,18 +2,23 @@ package service
 
 import (
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
-	"github.com/azevedoguigo/demostore_api.git/internal/repository"
 )
 
-type UserService struct {
-	repo repository.UserRepository
+type UserService interface {
+	CreateUser(user *domain.User) error
 }
 
-func NewUserService(repo *repository.UserRepository) *UserService {
-	return &UserService{repo: *repo}
+type UserServiceImpl struct {
+	repo domain.UserRepository
 }
 
-func (s *UserService) CreateUser(user *domain.User) error {
+func NewUserService(repo domain.UserRepository) *UserServiceImpl {
+	return &UserServiceImpl{repo: repo}
+}
+
+func (s *UserServiceImpl) CreateUser(user *domain.User) error {
+	user.BindID()
+
 	if err := s.repo.Create(user); err != nil {
 		return err
 	}

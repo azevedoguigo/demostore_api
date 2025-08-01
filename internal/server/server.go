@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/config"
+	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/handler"
 	"github.com/azevedoguigo/demostore_api.git/internal/repository"
 	"github.com/azevedoguigo/demostore_api.git/internal/service"
@@ -34,7 +35,7 @@ func (s *Server) SetupRoutes() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 
-	userRepo := repository.NewUserRepository(db)
+	var userRepo domain.UserRepository = repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepo)
 	userHandler := handler.NewUserHandler(userService)
 
