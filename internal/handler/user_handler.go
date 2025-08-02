@@ -42,10 +42,6 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if id == "" {
-		utils.HandleErrorResponse(w, http.StatusBadRequest, "User ID is required")
-		return
-	}
 
 	userUUID, err := uuid.Parse(id)
 	if err != nil {
