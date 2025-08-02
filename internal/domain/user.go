@@ -2,6 +2,7 @@ package domain
 
 import (
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -20,4 +21,14 @@ type UserRepository interface {
 
 func (u *User) BindID() {
 	u.ID = uuid.New()
+}
+
+func (u *User) BindHashedPassword(password string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	u.Password = string(hashedPassword)
+	return nil
 }
