@@ -3,6 +3,7 @@ package handler_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -67,6 +68,44 @@ func (suite *UserHandlerTestSuite) TestCreateUser_Success() {
 
 	assert.Equal(suite.T(), user.Name, "Test User")
 	assert.Equal(suite.T(), user.Email, "test@example.com")
+}
+
+func (suite *UserHandlerTestSuite) TestCreateUser_InvalidRequestBody() {
+	req := httptest.NewRequest("POST", "/users", bytes.NewReader([]byte("invalid json")))
+	rr := httptest.NewRecorder()
+
+	suite.handler.CreateUser(rr, req)
+
+	assert.Equal(suite.T(), http.StatusBadRequest, rr.Code)
+
+	var response map[string]string
+	json.NewDecoder(rr.Body).Decode(&response)
+
+	assert.Equal(suite.T(), "Bad Request", response["error"])
+	assert.Equal(suite.T(), "Invalid request body", response["message"])
+}
+
+func (suite *UserHandlerTestSuite) TestCreateUser_InternalServerError() {
+	user := &domain.User{
+		Name:     "Test User",
+		Email:    "test@example.com",
+		Password: "passwd123",
+	}
+	suite.service.On("CreateUser", user).Return(errors.New("internal server error")).Once()
+
+	body, _ := json.Marshal(user)
+	req := httptest.NewRequest("POST", "/users", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+
+	suite.handler.CreateUser(rr, req)
+
+	assert.Equal(suite.T(), http.StatusInternalServerError, rr.Code)
+
+	var response map[string]string
+	json.NewDecoder(rr.Body).Decode(&response)
+
+	assert.Equal(suite.T(), "Internal Server Error", response["error"])
+	assert.Equal(suite.T(), "internal server error", response["message"])
 }
 
 func (suite *UserHandlerTestSuite) TestGetUserByID_Success() {
