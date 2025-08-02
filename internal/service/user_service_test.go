@@ -5,9 +5,11 @@ import (
 
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/service"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
+	"gorm.io/gorm"
 )
 
 type MockUserRepository struct {
@@ -17,6 +19,15 @@ type MockUserRepository struct {
 func (m *MockUserRepository) Create(user *domain.User) error {
 	args := m.Called(user)
 	return args.Error(0)
+}
+
+func (m *MockUserRepository) GetByID(id uuid.UUID) (*domain.User, error) {
+	args := m.Called(id)
+	if user, ok := args.Get(0).(*domain.User); ok {
+		return user, args.Error(1)
+	}
+
+	return nil, args.Error(1)
 }
 
 type UserServiceTestSuite struct {
@@ -38,6 +49,63 @@ func (suite *UserServiceTestSuite) TestCreateUser_Success() {
 	err := suite.service.CreateUser(user)
 
 	assert.NoError(suite.T(), err)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *UserServiceTestSuite) TestCreateUser_Error() {
+	user := &domain.User{
+		Name:  "Test User",
+		Email: "test@example.com",
+	}
+
+	suite.repo.On("Create", user).Return(assert.AnError).Once()
+
+	err := suite.service.CreateUser(user)
+
+	assert.Error(suite.T(), err)
+	assert.Equal(suite.T(), assert.AnError, err)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *UserServiceTestSuite) TestGetUserByID_Success() {
+	id := uuid.New()
+	user := &domain.User{
+		ID:    id,
+		Name:  "Test User",
+		Email: "test@example.com",
+	}
+
+	suite.repo.On("GetByID", id).Return(user, nil).Once()
+
+	result, err := suite.service.GetUserByID(id)
+
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), user, result)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *UserServiceTestSuite) TestGetUserByID_NotFound() {
+	id := uuid.New()
+
+	suite.repo.On("GetByID", id).Return(nil, gorm.ErrRecordNotFound).Once()
+
+	result, err := suite.service.GetUserByID(id)
+
+	assert.Nil(suite.T(), result)
+	assert.ErrorAs(suite.T(), err, &gorm.ErrRecordNotFound)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *UserServiceTestSuite) TestGetUserByID_Error() {
+	id := uuid.New()
+
+	suite.repo.On("GetByID", id).Return(nil, assert.AnError).Once()
+
+	result, err := suite.service.GetUserByID(id)
+
+	assert.Nil(suite.T(), result)
+	assert.Error(suite.T(), err)
+	assert.Equal(suite.T(), assert.AnError, err)
 	suite.repo.AssertExpectations(suite.T())
 }
 
