@@ -24,7 +24,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var user domain.User
 
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		utils.HandleErrorResponse(w, http.StatusBadRequest, err.Error())
+		utils.HandleErrorResponse(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -33,15 +33,15 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.JsonResponse(w, http.StatusCreated, map[string]string{"message": "User created successfully"})
+	utils.JsonResponse(
+		w,
+		http.StatusCreated,
+		map[string]string{"message": "User created successfully"},
+	)
 }
 
 func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if id == "" {
-		utils.HandleErrorResponse(w, http.StatusBadRequest, "User ID is required")
-		return
-	}
 
 	userUUID, err := uuid.Parse(id)
 	if err != nil {
