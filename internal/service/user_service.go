@@ -2,10 +2,12 @@ package service
 
 import (
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
+	"github.com/google/uuid"
 )
 
 type UserService interface {
 	CreateUser(user *domain.User) error
+	GetUserByID(id uuid.UUID) (*domain.User, error)
 }
 
 type UserServiceImpl struct {
@@ -22,5 +24,15 @@ func (s *UserServiceImpl) CreateUser(user *domain.User) error {
 	if err := s.repo.Create(user); err != nil {
 		return err
 	}
+
 	return nil
+}
+
+func (s *UserServiceImpl) GetUserByID(id uuid.UUID) (*domain.User, error) {
+	user, err := s.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
