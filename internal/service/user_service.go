@@ -21,6 +21,10 @@ func NewUserService(repo domain.UserRepository) *UserServiceImpl {
 func (s *UserServiceImpl) CreateUser(user *domain.User) error {
 	user.BindID()
 
+	if err := user.BindHashedPassword(user.Password); err != nil {
+		return err
+	}
+
 	if err := s.repo.Create(user); err != nil {
 		return err
 	}
