@@ -33,7 +33,11 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.JsonResponse(w, http.StatusCreated, map[string]string{"message": "User created successfully"})
+	utils.JsonResponse(
+		w,
+		http.StatusCreated,
+		map[string]string{"message": "User created successfully"},
+	)
 }
 
 func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
