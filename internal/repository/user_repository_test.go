@@ -28,7 +28,7 @@ func (s *UserRepositoryTestSuite) SetupTest() {
 	s.repo = repository.NewUserRepository(db)
 }
 
-func (s *UserRepositoryTestSuite) TestCreateUser() {
+func (s *UserRepositoryTestSuite) TestCreateUser_Success() {
 	user := &domain.User{
 		Name:     "Test User",
 		Email:    "testuser@example.com",
@@ -38,6 +38,28 @@ func (s *UserRepositoryTestSuite) TestCreateUser() {
 
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), user.ID, "User ID should be set after creation")
+}
+
+func (s *UserRepositoryTestSuite) TestCreateUser_Error() {
+	user := &domain.User{
+		Name:     "User One",
+		Email:    "userone@example.com",
+		Password: "password",
+	}
+	err := s.repo.Create(user)
+
+	assert.NoError(s.T(), err)
+	assert.NotNil(s.T(), user.ID, "User ID should be set after creation")
+
+	userWithDuplicatedEmail := &domain.User{
+		Name:     "User Two",
+		Email:    "userone@example.com",
+		Password: "password",
+	}
+	err = s.repo.Create(userWithDuplicatedEmail)
+
+	assert.Error(s.T(), err)
+	assert.EqualError(s.T(), err, "UNIQUE constraint failed: users.email")
 }
 
 func (s *UserRepositoryTestSuite) TestGetUserByID_Success() {
