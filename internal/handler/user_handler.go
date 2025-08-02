@@ -24,7 +24,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var user domain.User
 
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		utils.HandleErrorResponse(w, http.StatusBadRequest, err.Error())
+		utils.HandleErrorResponse(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
