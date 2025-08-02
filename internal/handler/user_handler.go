@@ -7,6 +7,9 @@ import (
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/service"
 	"github.com/azevedoguigo/demostore_api.git/pkg/utils"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type UserHandler struct {
@@ -31,4 +34,31 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.JsonResponse(w, http.StatusCreated, map[string]string{"message": "User created successfully"})
+}
+
+func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		utils.HandleErrorResponse(w, http.StatusBadRequest, "User ID is required")
+		return
+	}
+
+	userUUID, err := uuid.Parse(id)
+	if err != nil {
+		utils.HandleErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	user, err := h.service.GetUserByID(userUUID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			utils.HandleErrorResponse(w, http.StatusNotFound, "User not found")
+			return
+		}
+
+		utils.HandleErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.JsonResponse(w, http.StatusOK, user)
 }

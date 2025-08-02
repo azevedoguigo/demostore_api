@@ -41,6 +41,7 @@ func (s *Server) SetupRoutes() {
 
 	s.router.Route("/api/v1/users", func(r chi.Router) {
 		r.Post("/", userHandler.CreateUser)
+		r.Get("/{id}", userHandler.GetUserByID)
 	})
 }
 
