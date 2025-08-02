@@ -17,3 +17,11 @@ func TestUser_BindID(t *testing.T) {
 
 	assert.NotNil(t, user.ID, "ID should be generated")
 }
+
+func TestUser_HashPassword(t *testing.T) {
+	password := "securepassword"
+	user := domain.User{}
+	err := user.BindHashedPassword(password)
+
+	assert.NoError(t, err, "Hashing password should not return an error")
+}
