@@ -172,6 +172,26 @@ func (suite *UserHandlerTestSuite) TestGetUserByID_InvalidUserID() {
 	assert.Equal(suite.T(), "invalid UUID length: 12", response["message"])
 }
 
+func (suite *UserHandlerTestSuite) TestGetUserByID_InternalServerError() {
+	userID := uuid.New()
+	suite.service.On("GetUserByID", userID).Return(nil, errors.New("internal server error")).Once()
+
+	r := chi.NewRouter()
+	r.Get("/users/{id}", suite.handler.GetUserByID)
+	req := httptest.NewRequest("GET", "/users/"+userID.String(), nil)
+	rr := httptest.NewRecorder()
+
+	r.ServeHTTP(rr, req)
+
+	assert.Equal(suite.T(), http.StatusInternalServerError, rr.Code)
+
+	var response map[string]string
+	json.NewDecoder(rr.Body).Decode(&response)
+
+	assert.Equal(suite.T(), "Internal Server Error", response["error"])
+	assert.Equal(suite.T(), "internal server error", response["message"])
+}
+
 func TestUserHandlerSuite(t *testing.T) {
 	suite.Run(t, new(UserHandlerTestSuite))
 }
