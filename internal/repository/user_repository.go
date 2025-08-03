@@ -26,3 +26,12 @@ func (r *UserRepository) GetByID(id uuid.UUID) (*domain.User, error) {
 
 	return &user, nil
 }
+
+func (r *UserRepository) GetByEmail(email string) (*domain.User, error) {
+	var user domain.User
+	if err := r.db.Take(&user, "email = ?", email).Error; err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
