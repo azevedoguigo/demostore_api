@@ -30,6 +30,15 @@ func (m *MockUserRepository) GetByID(id uuid.UUID) (*domain.User, error) {
 	return nil, args.Error(1)
 }
 
+func (m *MockUserRepository) GetByEmail(email string) (*domain.User, error) {
+	args := m.Called(email)
+	if user, ok := args.Get(0).(*domain.User); ok {
+		return user, args.Error(1)
+	}
+
+	return nil, args.Error(1)
+}
+
 type UserServiceTestSuite struct {
 	suite.Suite
 	repo    *MockUserRepository

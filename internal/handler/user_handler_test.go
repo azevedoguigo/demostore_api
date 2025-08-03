@@ -37,6 +37,15 @@ func (m *MockUserService) GetUserByID(id uuid.UUID) (*domain.User, error) {
 	return u.(*domain.User), args.Error(1)
 }
 
+func (m *MockUserService) GetUserByEmail(email string) (*domain.User, error) {
+	args := m.Called(email)
+	u := args.Get(0)
+	if u == nil {
+		return nil, args.Error(1)
+	}
+	return u.(*domain.User), args.Error(1)
+}
+
 var _ service.UserService = (*MockUserService)(nil)
 
 type UserHandlerTestSuite struct {
