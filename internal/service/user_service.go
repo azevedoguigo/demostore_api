@@ -8,6 +8,7 @@ import (
 type UserService interface {
 	CreateUser(user *domain.User) error
 	GetUserByID(id uuid.UUID) (*domain.User, error)
+	GetUserByEmail(email string) (*domain.User, error)
 }
 
 type UserServiceImpl struct {
@@ -34,6 +35,15 @@ func (s *UserServiceImpl) CreateUser(user *domain.User) error {
 
 func (s *UserServiceImpl) GetUserByID(id uuid.UUID) (*domain.User, error) {
 	user, err := s.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *UserServiceImpl) GetUserByEmail(email string) (*domain.User, error) {
+	user, err := s.repo.GetByEmail(email)
 	if err != nil {
 		return nil, err
 	}
