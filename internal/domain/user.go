@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -20,6 +22,7 @@ type UserRepository interface {
 	Create(user *User) error
 	GetByID(id uuid.UUID) (*User, error)
 	GetByEmail(email string) (*User, error)
+	Update(user *User) error
 }
 
 func (u *User) BindID() {
@@ -39,10 +42,20 @@ func (u *User) BindHashedPassword(password string) error {
 func (u *User) BindAccessToken() error {
 	var err error
 
-	u.AccessToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":    u.ID,
-		"email": u.Email,
-	}).SignedString([]byte("secret"))
+	claims := jwt.StandardClaims{
+		Id:        u.ID.String(),
+		Subject:   u.Email,
+		ExpiresAt: jwt.TimeFunc().Add(8 * time.Hour).Unix(),
+		IssuedAt:  jwt.TimeFunc().Unix(),
+	}
 
-	return err
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenString, err := token.SignedString([]byte("secret"))
+	if err != nil {
+		return err
+	}
+
+	u.AccessToken = tokenString
+	return nil
 }
