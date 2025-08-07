@@ -39,6 +39,11 @@ func (m *MockUserRepository) GetByEmail(email string) (*domain.User, error) {
 	return nil, args.Error(1)
 }
 
+func (m *MockUserRepository) Update(user *domain.User) error {
+	args := m.Called(user)
+	return args.Error(0)
+}
+
 type UserServiceTestSuite struct {
 	suite.Suite
 	repo    *MockUserRepository
