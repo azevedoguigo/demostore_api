@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
+	"github.com/azevedoguigo/demostore_api.git/internal/dto/request"
 	"github.com/azevedoguigo/demostore_api.git/internal/handler"
 	"github.com/azevedoguigo/demostore_api.git/internal/service"
 	"github.com/go-chi/chi/v5"
@@ -35,6 +36,20 @@ func (m *MockUserService) GetUserByID(id uuid.UUID) (*domain.User, error) {
 		return nil, args.Error(1)
 	}
 	return u.(*domain.User), args.Error(1)
+}
+
+func (m *MockUserService) GetUserByEmail(email string) (*domain.User, error) {
+	args := m.Called(email)
+	u := args.Get(0)
+	if u == nil {
+		return nil, args.Error(1)
+	}
+	return u.(*domain.User), args.Error(1)
+}
+
+func (m *MockUserService) UpdateUser(dto *request.UpdateUserRequestDTO) error {
+	args := m.Called(dto)
+	return args.Error(0)
 }
 
 var _ service.UserService = (*MockUserService)(nil)

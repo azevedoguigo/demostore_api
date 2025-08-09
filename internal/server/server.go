@@ -43,6 +43,13 @@ func (s *Server) SetupRoutes() {
 		r.Post("/", userHandler.CreateUser)
 		r.Get("/{id}", userHandler.GetUserByID)
 	})
+
+	authService := service.NewAuthService(userService)
+	authHandler := handler.NewAuthHandler(authService)
+
+	s.router.Route("/api/v1/auth", func(r chi.Router) {
+		r.Post("/login", authHandler.Login)
+	})
 }
 
 func (s *Server) Start() {
