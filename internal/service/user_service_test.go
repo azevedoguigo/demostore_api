@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
+	"github.com/azevedoguigo/demostore_api.git/internal/dto/request"
 	"github.com/azevedoguigo/demostore_api.git/internal/service"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -56,25 +57,30 @@ func (suite *UserServiceTestSuite) SetupTest() {
 }
 
 func (suite *UserServiceTestSuite) TestCreateUser_Success() {
-	user := &domain.User{Name: "Test User", Email: "test@example.com"}
+	dto := &request.CreateUserRequestDTO{
+		Name:     "Test User",
+		Email:    "test@example.com",
+		Password: "passwd123",
+	}
 
-	suite.repo.On("Create", user).Return(nil).Once()
+	suite.repo.On("Create", mock.Anything).Return(nil).Once()
 
-	err := suite.service.CreateUser(user)
+	err := suite.service.CreateUser(dto)
 
 	assert.NoError(suite.T(), err)
 	suite.repo.AssertExpectations(suite.T())
 }
 
 func (suite *UserServiceTestSuite) TestCreateUser_Error() {
-	user := &domain.User{
-		Name:  "Test User",
-		Email: "test@example.com",
+	dto := &request.CreateUserRequestDTO{
+		Name:     "Test User",
+		Email:    "test@example.com",
+		Password: "passwd123",
 	}
 
-	suite.repo.On("Create", user).Return(assert.AnError).Once()
+	suite.repo.On("Create", mock.Anything).Return(assert.AnError).Once()
 
-	err := suite.service.CreateUser(user)
+	err := suite.service.CreateUser(dto)
 
 	assert.Error(suite.T(), err)
 	assert.Equal(suite.T(), assert.AnError, err)

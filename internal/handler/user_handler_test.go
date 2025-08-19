@@ -24,8 +24,8 @@ type MockUserService struct {
 	mock.Mock
 }
 
-func (m *MockUserService) CreateUser(user *domain.User) error {
-	args := m.Called(user)
+func (m *MockUserService) CreateUser(dto *request.CreateUserRequestDTO) error {
+	args := m.Called(dto)
 	return args.Error(0)
 }
 
@@ -66,14 +66,14 @@ func (suite *UserHandlerTestSuite) SetupTest() {
 }
 
 func (suite *UserHandlerTestSuite) TestCreateUser_Success() {
-	user := &domain.User{
+	dto := &request.CreateUserRequestDTO{
 		Name:     "Test User",
 		Email:    "test@example.com",
 		Password: "passwd123",
 	}
-	suite.service.On("CreateUser", user).Return(nil).Once()
+	suite.service.On("CreateUser", dto).Return(nil).Once()
 
-	body, _ := json.Marshal(user)
+	body, _ := json.Marshal(dto)
 	req := httptest.NewRequest("POST", "/users", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 
@@ -81,8 +81,8 @@ func (suite *UserHandlerTestSuite) TestCreateUser_Success() {
 
 	assert.Equal(suite.T(), http.StatusCreated, rr.Code)
 
-	assert.Equal(suite.T(), user.Name, "Test User")
-	assert.Equal(suite.T(), user.Email, "test@example.com")
+	assert.Equal(suite.T(), dto.Name, "Test User")
+	assert.Equal(suite.T(), dto.Email, "test@example.com")
 }
 
 func (suite *UserHandlerTestSuite) TestCreateUser_InvalidRequestBody() {
@@ -101,14 +101,14 @@ func (suite *UserHandlerTestSuite) TestCreateUser_InvalidRequestBody() {
 }
 
 func (suite *UserHandlerTestSuite) TestCreateUser_InternalServerError() {
-	user := &domain.User{
+	dto := &request.CreateUserRequestDTO{
 		Name:     "Test User",
 		Email:    "test@example.com",
 		Password: "passwd123",
 	}
-	suite.service.On("CreateUser", user).Return(errors.New("internal server error")).Once()
+	suite.service.On("CreateUser", dto).Return(errors.New("internal server error")).Once()
 
-	body, _ := json.Marshal(user)
+	body, _ := json.Marshal(dto)
 	req := httptest.NewRequest("POST", "/users", bytes.NewReader(body))
 	rr := httptest.NewRecorder()
 

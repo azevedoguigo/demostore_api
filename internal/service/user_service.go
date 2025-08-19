@@ -7,7 +7,7 @@ import (
 )
 
 type UserService interface {
-	CreateUser(user *domain.User) error
+	CreateUser(dto *request.CreateUserRequestDTO) error
 	GetUserByID(id uuid.UUID) (*domain.User, error)
 	GetUserByEmail(email string) (*domain.User, error)
 	UpdateUser(dto *request.UpdateUserRequestDTO) error
@@ -21,7 +21,13 @@ func NewUserService(repo domain.UserRepository) *UserServiceImpl {
 	return &UserServiceImpl{repo: repo}
 }
 
-func (s *UserServiceImpl) CreateUser(user *domain.User) error {
+func (s *UserServiceImpl) CreateUser(dto *request.CreateUserRequestDTO) error {
+	user := &domain.User{
+		Name:     dto.Name,
+		Email:    dto.Email,
+		Password: dto.Password,
+	}
+
 	user.BindID()
 
 	if err := user.BindHashedPassword(user.Password); err != nil {

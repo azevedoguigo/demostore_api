@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/azevedoguigo/demostore_api.git/internal/domain"
+	"github.com/azevedoguigo/demostore_api.git/internal/dto/request"
 	"github.com/azevedoguigo/demostore_api.git/internal/service"
 	"github.com/azevedoguigo/demostore_api.git/pkg/utils"
 	"github.com/go-chi/chi/v5"
@@ -21,14 +21,14 @@ func NewUserHandler(service service.UserService) *UserHandler {
 }
 
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var user domain.User
+	var dto request.CreateUserRequestDTO
 
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		utils.HandleErrorResponse(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	if err := h.service.CreateUser(&user); err != nil {
+	if err := h.service.CreateUser(&dto); err != nil {
 		utils.HandleErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
