@@ -50,6 +50,14 @@ func (s *Server) SetupRoutes() {
 	s.router.Route("/api/v1/auth", func(r chi.Router) {
 		r.Post("/login", authHandler.Login)
 	})
+
+	var productRepo domain.ProductRepository = repository.NewProductRepository(db)
+	productService := service.NewProductService(productRepo)
+	productHandler := handler.NewProductHandler(productService)
+
+	s.router.Route("/api/v1/products", func(r chi.Router) {
+		r.Post("/", productHandler.CreateProduct)
+	})
 }
 
 func (s *Server) Start() {
