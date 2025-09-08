@@ -29,6 +29,11 @@ func (m *MockProductService) GetAllProducts() ([]domain.Product, error) {
 	return args.Get(0).([]domain.Product), args.Error(1)
 }
 
+func (m *MockProductService) GetProductByID(id string) (*domain.Product, error) {
+	args := m.Called(id)
+	return args.Get(0).(*domain.Product), args.Error(1)
+}
+
 type ProductHandlerTestSuite struct {
 	suite.Suite
 	handler *handler.ProductHandler
@@ -145,6 +150,81 @@ func (suite *ProductHandlerTestSuite) TestGetAllProducts_InternalServerError() {
 
 	suite.Equal("Internal Server Error", respBody["error"])
 	suite.Equal(assert.AnError.Error(), respBody["message"])
+}
+
+func (suite *ProductHandlerTestSuite) TestGetProductByID_Success() {
+	productID := "123e4567-e89b-12d3-a456-426614174000"
+	product := &domain.Product{
+		Name:        "Product 1",
+		Description: "Description for product 1",
+		Price:       10.0,
+		Stock:       5,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/products?id="+productID, nil)
+	recorder := httptest.NewRecorder()
+
+	suite.service.On("GetProductByID", productID).Return(product, nil)
+
+	suite.handler.GetProductByID(recorder, req)
+	resp := recorder.Result()
+	suite.Equal(http.StatusOK, resp.StatusCode)
+
+	var respBody domain.Product
+	json.NewDecoder(resp.Body).Decode(&respBody)
+
+	suite.Equal(*product, respBody)
+}
+
+func (suite *ProductHandlerTestSuite) TestGetProductByID_MissingID() {
+	req := httptest.NewRequest(http.MethodGet, "/products", nil)
+	recorder := httptest.NewRecorder()
+
+	suite.handler.GetProductByID(recorder, req)
+	resp := recorder.Result()
+	suite.Equal(http.StatusBadRequest, resp.StatusCode)
+
+	var respBody map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&respBody)
+
+	suite.Equal("Bad Request", respBody["error"])
+	suite.Equal("Missing product ID", respBody["message"])
+}
+
+func (suite *ProductHandlerTestSuite) TestGetProductByID_InternalServerError() {
+	productID := "123e4567-e89b-12d3-a456-426614174000"
+	req := httptest.NewRequest(http.MethodGet, "/products?id="+productID, nil)
+	recorder := httptest.NewRecorder()
+
+	suite.service.On("GetProductByID", productID).Return((*domain.Product)(nil), assert.AnError)
+
+	suite.handler.GetProductByID(recorder, req)
+	resp := recorder.Result()
+	suite.Equal(http.StatusInternalServerError, resp.StatusCode)
+
+	var respBody map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&respBody)
+
+	suite.Equal("Internal Server Error", respBody["error"])
+	suite.Equal(assert.AnError.Error(), respBody["message"])
+}
+
+func (suite *ProductHandlerTestSuite) TestGetProductByID_NotFound() {
+	productID := "123e4567-e89b-12d3-a456-426614174000"
+	req := httptest.NewRequest(http.MethodGet, "/products?id="+productID, nil)
+	recorder := httptest.NewRecorder()
+
+	suite.service.On("GetProductByID", productID).Return((*domain.Product)(nil), nil)
+
+	suite.handler.GetProductByID(recorder, req)
+	resp := recorder.Result()
+	suite.Equal(http.StatusNotFound, resp.StatusCode)
+
+	var respBody map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&respBody)
+
+	suite.Equal("Not Found", respBody["error"])
+	suite.Equal("Product not found", respBody["message"])
 }
 
 func TestProductHandlerTestSuite(t *testing.T) {

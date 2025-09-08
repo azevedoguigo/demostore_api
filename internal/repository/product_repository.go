@@ -2,6 +2,7 @@ package repository
 
 import (
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -22,4 +23,14 @@ func (r *ProductRepository) GetAll() ([]domain.Product, error) {
 	err := r.db.Find(&products).Error
 
 	return products, err
+}
+
+func (r *ProductRepository) GetByID(id uuid.UUID) (*domain.Product, error) {
+	var product domain.Product
+	err := r.db.First(&product, "id = ?", id).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &product, nil
 }

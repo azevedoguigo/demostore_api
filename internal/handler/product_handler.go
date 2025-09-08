@@ -46,3 +46,23 @@ func (h *ProductHandler) GetAllProducts(w http.ResponseWriter, r *http.Request) 
 
 	utils.JsonResponse(w, http.StatusOK, products)
 }
+
+func (h *ProductHandler) GetProductByID(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		utils.HandleErrorResponse(w, http.StatusBadRequest, "Missing product ID")
+		return
+	}
+
+	product, err := h.service.GetProductByID(id)
+	if err != nil {
+		utils.HandleErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if product == nil {
+		utils.HandleErrorResponse(w, http.StatusNotFound, "Product not found")
+		return
+	}
+
+	utils.JsonResponse(w, http.StatusOK, product)
+}

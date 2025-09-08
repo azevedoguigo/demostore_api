@@ -1,13 +1,18 @@
 package service
 
 import (
+	"errors"
+
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/dto/request"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type ProductService interface {
 	CreateProduct(dto request.CreateProductRequestDTO) error
 	GetAllProducts() ([]domain.Product, error)
+	GetProductByID(id string) (*domain.Product, error)
 }
 
 type ProductServiceImpl struct {
@@ -37,4 +42,16 @@ func (s *ProductServiceImpl) CreateProduct(dto request.CreateProductRequestDTO) 
 
 func (s *ProductServiceImpl) GetAllProducts() ([]domain.Product, error) {
 	return s.repo.GetAll()
+}
+
+func (s *ProductServiceImpl) GetProductByID(id string) (*domain.Product, error) {
+	product, err := s.repo.GetByID(uuid.MustParse(id))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+	return product, nil
 }
