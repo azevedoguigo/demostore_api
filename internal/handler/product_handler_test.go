@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/dto/request"
 	"github.com/azevedoguigo/demostore_api.git/internal/handler"
 	"github.com/stretchr/testify/assert"
@@ -21,6 +22,11 @@ type MockProductService struct {
 func (m *MockProductService) CreateProduct(dto request.CreateProductRequestDTO) error {
 	args := m.Called(dto)
 	return args.Error(0)
+}
+
+func (m *MockProductService) GetAllProducts() ([]domain.Product, error) {
+	args := m.Called()
+	return args.Get(0).([]domain.Product), args.Error(1)
 }
 
 type ProductHandlerTestSuite struct {
@@ -84,6 +90,53 @@ func (suite *ProductHandlerTestSuite) TestCreateProduct_InternalServerError() {
 	suite.service.On("CreateProduct", dto).Return(assert.AnError)
 
 	suite.handler.CreateProduct(recorder, req)
+	resp := recorder.Result()
+	suite.Equal(http.StatusInternalServerError, resp.StatusCode)
+
+	var respBody map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&respBody)
+
+	suite.Equal("Internal Server Error", respBody["error"])
+	suite.Equal(assert.AnError.Error(), respBody["message"])
+}
+
+func (suite *ProductHandlerTestSuite) TestGetAllProducts_Success() {
+	products := []domain.Product{
+		{
+			Name:        "Product 1",
+			Description: "Description for product 1",
+			Price:       10.0,
+			Stock:       5,
+		},
+		{
+			Name:        "Product 2",
+			Description: "Description for product 2",
+			Price:       20.0,
+			Stock:       15,
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/products", nil)
+	recorder := httptest.NewRecorder()
+
+	suite.service.On("GetAllProducts").Return(products, nil)
+
+	suite.handler.GetAllProducts(recorder, req)
+	resp := recorder.Result()
+	suite.Equal(http.StatusOK, resp.StatusCode)
+
+	var respBody []domain.Product
+	json.NewDecoder(resp.Body).Decode(&respBody)
+
+	suite.Equal(products, respBody)
+}
+
+func (suite *ProductHandlerTestSuite) TestGetAllProducts_InternalServerError() {
+	req := httptest.NewRequest(http.MethodGet, "/products", nil)
+	recorder := httptest.NewRecorder()
+	suite.service.On("GetAllProducts").Return([]domain.Product(nil), assert.AnError)
+
+	suite.handler.GetAllProducts(recorder, req)
 	resp := recorder.Result()
 	suite.Equal(http.StatusInternalServerError, resp.StatusCode)
 

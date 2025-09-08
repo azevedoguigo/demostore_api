@@ -66,6 +66,46 @@ func (s *ProductRepositoryTestSuite) TestCreateProduct_Error() {
 	assert.NotNil(s.T(), err, "Creating a product with duplicate ID should return an error")
 }
 
+func (s *ProductRepositoryTestSuite) TestGetAllProducts_Success() {
+	products := []domain.Product{
+		{
+			Name:        "Product 1",
+			Description: "Description for product 1",
+			Price:       10.0,
+			Stock:       20,
+		},
+		{
+			Name:        "Product 2",
+			Description: "Description for product 2",
+			Price:       15.0,
+			Stock:       30,
+		},
+	}
+
+	for i := range products {
+		products[i].BindID()
+		err := s.repo.Create(&products[i])
+		assert.Nil(s.T(), err)
+	}
+
+	retrievedProducts, err := s.repo.GetAll()
+
+	assert.Nil(s.T(), err)
+	assert.Equal(
+		s.T(),
+		len(products),
+		len(retrievedProducts),
+		"Number of retrieved products should match the number of created products",
+	)
+}
+
+func (s *ProductRepositoryTestSuite) TestGetAllProducts_Empty() {
+	retrievedProducts, err := s.repo.GetAll()
+
+	assert.Nil(s.T(), err)
+	assert.Equal(s.T(), 0, len(retrievedProducts), "Retrieved products should be empty when no products exist")
+}
+
 func TestProductRepositoryTestSuite(t *testing.T) {
 	suite.Run(t, new(ProductRepositoryTestSuite))
 }
