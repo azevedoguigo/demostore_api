@@ -20,6 +20,11 @@ func (m *MockProductRepository) Create(product *domain.Product) error {
 	return args.Error(0)
 }
 
+func (m *MockProductRepository) GetAll() ([]domain.Product, error) {
+	args := m.Called()
+	return args.Get(0).([]domain.Product), args.Error(1)
+}
+
 type ProductServiceTestSuite struct {
 	suite.Suite
 	repo    *MockProductRepository
@@ -60,6 +65,52 @@ func (suite *ProductServiceTestSuite) TestCreateProduct_RepositoryError() {
 	err := suite.service.CreateProduct(dto)
 
 	suite.Error(err)
+	suite.Equal(err, assert.AnError)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *ProductServiceTestSuite) TestGetAllProducts_Success() {
+	products := []domain.Product{
+		{
+			Name:        "Product 1",
+			Description: "Description for product 1",
+			Price:       10.0,
+			Stock:       5,
+		},
+		{
+			Name:        "Product 2",
+			Description: "Description for product 2",
+			Price:       20.0,
+			Stock:       15,
+		},
+	}
+
+	suite.repo.On("GetAll").Return(products, nil)
+
+	result, err := suite.service.GetAllProducts()
+
+	suite.NoError(err)
+	suite.Equal(products, result)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *ProductServiceTestSuite) TestGetAllProducts_Empty() {
+	suite.repo.On("GetAll").Return([]domain.Product{}, nil)
+
+	result, err := suite.service.GetAllProducts()
+
+	suite.NoError(err)
+	suite.Empty(result)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *ProductServiceTestSuite) TestGetAllProducts_RepositoryError() {
+	suite.repo.On("GetAll").Return([]domain.Product(nil), assert.AnError)
+
+	result, err := suite.service.GetAllProducts()
+
+	suite.Error(err)
+	suite.Nil(result)
 	suite.Equal(err, assert.AnError)
 	suite.repo.AssertExpectations(suite.T())
 }

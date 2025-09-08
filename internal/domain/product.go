@@ -16,6 +16,7 @@ type Product struct {
 
 type ProductRepository interface {
 	Create(product *Product) error
+	GetAll() ([]Product, error)
 }
 
 func (p *Product) BindID() {

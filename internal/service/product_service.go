@@ -7,6 +7,7 @@ import (
 
 type ProductService interface {
 	CreateProduct(dto request.CreateProductRequestDTO) error
+	GetAllProducts() ([]domain.Product, error)
 }
 
 type ProductServiceImpl struct {
@@ -32,4 +33,8 @@ func (s *ProductServiceImpl) CreateProduct(dto request.CreateProductRequestDTO) 
 	}
 
 	return nil
+}
+
+func (s *ProductServiceImpl) GetAllProducts() ([]domain.Product, error) {
+	return s.repo.GetAll()
 }
