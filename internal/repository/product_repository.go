@@ -16,3 +16,10 @@ func NewProductRepository(db *gorm.DB) *ProductRepository {
 func (r *ProductRepository) Create(product *domain.Product) error {
 	return r.db.Create(product).Error
 }
+
+func (r *ProductRepository) GetAll() ([]domain.Product, error) {
+	var products []domain.Product
+	err := r.db.Find(&products).Error
+
+	return products, err
+}

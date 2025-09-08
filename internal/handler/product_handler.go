@@ -36,3 +36,13 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		map[string]string{"message": "Product created successfully"},
 	)
 }
+
+func (h *ProductHandler) GetAllProducts(w http.ResponseWriter, r *http.Request) {
+	products, err := h.service.GetAllProducts()
+	if err != nil {
+		utils.HandleErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.JsonResponse(w, http.StatusOK, products)
+}

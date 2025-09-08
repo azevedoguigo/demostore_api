@@ -57,6 +57,7 @@ func (s *Server) SetupRoutes() {
 
 	s.router.Route("/api/v1/products", func(r chi.Router) {
 		r.Post("/", productHandler.CreateProduct)
+		r.Get("/", productHandler.GetAllProducts)
 	})
 }
 
