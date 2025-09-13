@@ -7,9 +7,10 @@ import (
 	"github.com/azevedoguigo/demostore_api.git/internal/config"
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/handler"
+	"github.com/azevedoguigo/demostore_api.git/internal/middleware"
 	"github.com/azevedoguigo/demostore_api.git/internal/repository"
 	"github.com/azevedoguigo/demostore_api.git/internal/service"
-	"github.com/go-chi/chi/middleware"
+	chiMiddleware "github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -20,8 +21,8 @@ type Server struct {
 
 func NewServer(cfg *config.Config) *Server {
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	r.Use(chiMiddleware.Logger)
+	r.Use(chiMiddleware.Recoverer)
 
 	return &Server{
 		router: r,
@@ -41,7 +42,7 @@ func (s *Server) SetupRoutes() {
 
 	s.router.Route("/api/v1/users", func(r chi.Router) {
 		r.Post("/", userHandler.CreateUser)
-		r.Get("/{id}", userHandler.GetUserByID)
+		r.With(middleware.AuthMiddleware).Get("/{id}", userHandler.GetUserByID)
 	})
 
 	authService := service.NewAuthService(userService)
@@ -56,6 +57,8 @@ func (s *Server) SetupRoutes() {
 	productHandler := handler.NewProductHandler(productService)
 
 	s.router.Route("/api/v1/products", func(r chi.Router) {
+		r.Use(middleware.AuthMiddleware)
+
 		r.Post("/", productHandler.CreateProduct)
 		r.Get("/", productHandler.GetAllProducts)
 		r.Get("/{id}", productHandler.GetProductByID)
