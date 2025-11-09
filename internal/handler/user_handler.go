@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/dto/request"
@@ -51,7 +52,7 @@ func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.service.GetUserByID(userUUID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			utils.HandleErrorResponse(w, http.StatusNotFound, "User not found")
 			return
 		}
