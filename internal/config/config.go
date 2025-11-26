@@ -7,7 +7,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type Config struct {
+type PostgresConfig struct {
 	DBHost     string
 	DBPort     int
 	DBUser     string
@@ -17,18 +17,24 @@ type Config struct {
 	ServerPort string
 }
 
+type Config struct {
+	Postgres PostgresConfig
+}
+
 func LoadConfig() *Config {
 	if err := godotenv.Load(); err != nil {
 		log.Fatalf("Error loading .env file")
 	}
 
 	return &Config{
-		DBHost:     utils.GetEnv("DB_HOST", "localhost"),
-		DBPort:     utils.GetEnvAsInt("DB_PORT", 5432),
-		DBUser:     utils.GetEnv("DB_USER", "postgres"),
-		DBPassword: utils.GetEnv("DB_PASSWORD", "postgres"),
-		DBName:     utils.GetEnv("DB_NAME", "postgres"),
-		DBSSLMode:  utils.GetEnv("DB_SSL_MODE", "disable"),
-		ServerPort: utils.GetEnv("SERVER_PORT", "8080"),
+		Postgres: PostgresConfig{
+			DBHost:     utils.GetEnv("DB_HOST", "localhost"),
+			DBPort:     utils.GetEnvAsInt("DB_PORT", 5432),
+			DBUser:     utils.GetEnv("DB_USER", "postgres"),
+			DBPassword: utils.GetEnv("DB_PASSWORD", "postgres"),
+			DBName:     utils.GetEnv("DB_NAME", "postgres"),
+			DBSSLMode:  utils.GetEnv("DB_SSL_MODE", "disable"),
+			ServerPort: utils.GetEnv("SERVER_PORT", "8080"),
+		},
 	}
 }

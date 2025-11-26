@@ -12,8 +12,8 @@ import (
 )
 
 func NewPostgresDB(cfg *config.Config) (*gorm.DB, error) {
-	dsn := "host=" + cfg.DBHost + " user=" + cfg.DBUser + " password=" + cfg.DBPassword +
-		" dbname=" + cfg.DBName + " port=" + strconv.Itoa(cfg.DBPort) + " sslmode=" + cfg.DBSSLMode
+	dsn := "host=" + cfg.Postgres.DBHost + " user=" + cfg.Postgres.DBUser + " password=" + cfg.Postgres.DBPassword +
+		" dbname=" + cfg.Postgres.DBName + " port=" + strconv.Itoa(cfg.Postgres.DBPort) + " sslmode=" + cfg.Postgres.DBSSLMode
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {

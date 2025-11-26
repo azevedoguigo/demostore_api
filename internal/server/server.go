@@ -32,8 +32,8 @@ func (s *Server) SetupServer() {
 }
 
 func (s *Server) Start() {
-	log.Printf("Server starting on port %s", s.config.ServerPort)
-	if err := http.ListenAndServe(":"+s.config.ServerPort, s.router.chiRouter); err != nil {
+	log.Printf("Server starting on port %s", s.config.Postgres.ServerPort)
+	if err := http.ListenAndServe(":"+s.config.Postgres.ServerPort, s.router.chiRouter); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
