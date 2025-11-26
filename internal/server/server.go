@@ -5,24 +5,16 @@ import (
 	"net/http"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/config"
-	"github.com/azevedoguigo/demostore_api.git/internal/domain"
-	"github.com/azevedoguigo/demostore_api.git/internal/handler"
-	"github.com/azevedoguigo/demostore_api.git/internal/middleware"
 	"github.com/azevedoguigo/demostore_api.git/internal/repository"
-	"github.com/azevedoguigo/demostore_api.git/internal/service"
-	chiMiddleware "github.com/go-chi/chi/middleware"
-	"github.com/go-chi/chi/v5"
 )
 
 type Server struct {
-	router *chi.Mux
+	router *Router
 	config *config.Config
 }
 
 func NewServer(cfg *config.Config) *Server {
-	r := chi.NewRouter()
-	r.Use(chiMiddleware.Logger)
-	r.Use(chiMiddleware.Recoverer)
+	r := NewRouter()
 
 	return &Server{
 		router: r,
@@ -30,44 +22,18 @@ func NewServer(cfg *config.Config) *Server {
 	}
 }
 
-func (s *Server) SetupRoutes() {
+func (s *Server) SetupServer() {
 	db, err := repository.NewPostgresDB(s.config)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 
-	var userRepo domain.UserRepository = repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepo)
-	userHandler := handler.NewUserHandler(userService)
-
-	s.router.Route("/api/v1/users", func(r chi.Router) {
-		r.Post("/", userHandler.CreateUser)
-		r.With(middleware.AuthMiddleware).Get("/{id}", userHandler.GetUserByID)
-	})
-
-	authService := service.NewAuthService(userService)
-	authHandler := handler.NewAuthHandler(authService)
-
-	s.router.Route("/api/v1/auth", func(r chi.Router) {
-		r.Post("/login", authHandler.Login)
-	})
-
-	var productRepo domain.ProductRepository = repository.NewProductRepository(db)
-	productService := service.NewProductService(productRepo)
-	productHandler := handler.NewProductHandler(productService)
-
-	s.router.Route("/api/v1/products", func(r chi.Router) {
-		r.Use(middleware.AuthMiddleware)
-
-		r.Post("/", productHandler.CreateProduct)
-		r.Get("/", productHandler.GetAllProducts)
-		r.Get("/{id}", productHandler.GetProductByID)
-	})
+	s.router.SetupRoutes(db)
 }
 
 func (s *Server) Start() {
 	log.Printf("Server starting on port %s", s.config.ServerPort)
-	if err := http.ListenAndServe(":"+s.config.ServerPort, s.router); err != nil {
+	if err := http.ListenAndServe(":"+s.config.ServerPort, s.router.chiRouter); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

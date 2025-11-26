@@ -8,6 +8,6 @@ import (
 func main() {
 	cfg := config.LoadConfig()
 	server := server.NewServer(cfg)
-	server.SetupRoutes()
+	server.SetupServer()
 	server.Start()
 }
