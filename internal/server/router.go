@@ -1,14 +1,10 @@
 package server
 
 import (
-	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/handler"
 	"github.com/azevedoguigo/demostore_api.git/internal/middleware"
-	"github.com/azevedoguigo/demostore_api.git/internal/repository"
-	"github.com/azevedoguigo/demostore_api.git/internal/service"
 	chiMiddleware "github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
-	"gorm.io/gorm"
 )
 
 type Router struct {
@@ -48,18 +44,11 @@ func (s *Router) setupProductRoutes(productHandler *handler.ProductHandler) {
 	})
 }
 
-func (r *Router) SetupRoutes(db *gorm.DB) {
-	var userRepo domain.UserRepository = repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepo)
-	userHandler := handler.NewUserHandler(userService)
-
-	authService := service.NewAuthService(userService)
-	authHandler := handler.NewAuthHandler(authService)
-
-	var productRepo domain.ProductRepository = repository.NewProductRepository(db)
-	productService := service.NewProductService(productRepo)
-	productHandler := handler.NewProductHandler(productService)
-
+func (r *Router) SetupRoutes(
+	userHandler *handler.UserHandler,
+	authHandler *handler.AuthHandler,
+	productHandler *handler.ProductHandler,
+) {
 	r.setupUserRoutes(userHandler)
 	r.setupAuthRoutes(authHandler)
 	r.setupProductRoutes(productHandler)
