@@ -5,7 +5,10 @@ import (
 	"net/http"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/config"
+	"github.com/azevedoguigo/demostore_api.git/internal/domain"
+	"github.com/azevedoguigo/demostore_api.git/internal/handler"
 	"github.com/azevedoguigo/demostore_api.git/internal/repository"
+	"github.com/azevedoguigo/demostore_api.git/internal/service"
 )
 
 type Server struct {
@@ -28,7 +31,22 @@ func (s *Server) SetupServer() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 
-	s.router.SetupRoutes(db)
+	var userRepo domain.UserRepository = repository.NewUserRepository(db)
+	var productRepo domain.ProductRepository = repository.NewProductRepository(db)
+
+	userService := service.NewUserService(userRepo)
+	authService := service.NewAuthService(userService)
+	productService := service.NewProductService(productRepo)
+
+	userHandler := handler.NewUserHandler(userService)
+	authHandler := handler.NewAuthHandler(authService)
+	productHandler := handler.NewProductHandler(productService)
+
+	s.router.SetupRoutes(
+		userHandler,
+		authHandler,
+		productHandler,
+	)
 }
 
 func (s *Server) Start() {
