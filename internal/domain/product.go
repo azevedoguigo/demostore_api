@@ -6,7 +6,7 @@ import (
 )
 
 type Product struct {
-	gorm.Model
+	gorm.Model  `swaggerignore:"true"`
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Name        string    `json:"name" validate:"required,min=3,max=100"`
 	Description string    `json:"description" validate:"required,min=10,max=500"`

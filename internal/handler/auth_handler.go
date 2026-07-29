@@ -20,6 +20,20 @@ func NewAuthHandler(service service.AuthService) *AuthHandler {
 	return &AuthHandler{service: service}
 }
 
+// Login godoc
+//
+//	@Summary		Autentica um usuário
+//	@Description	Realiza login com email e senha, retornando um access token JWT
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			credentials	body		request.LoginRequestDTO	true	"Credenciais de login"
+//	@Success		200			{object}	response.AuthResponseDTO
+//	@Failure		400			{object}	utils.ErrorResponse
+//	@Failure		401			{object}	utils.ErrorResponse
+//	@Failure		404			{object}	utils.ErrorResponse
+//	@Failure		500			{object}	utils.ErrorResponse
+//	@Router			/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req request.LoginRequestDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

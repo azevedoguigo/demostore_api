@@ -10,7 +10,7 @@ import (
 )
 
 type User struct {
-	gorm.Model
+	gorm.Model  `swaggerignore:"true"`
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
 	Name        string    `json:"name" validate:"required,min=3,max=100"`
 	Email       string    `gorm:"unique" json:"email" validate:"required,email"`

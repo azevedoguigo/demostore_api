@@ -21,6 +21,18 @@ func NewUserHandler(service service.UserService) *UserHandler {
 	return &UserHandler{service: service}
 }
 
+// CreateUser godoc
+//
+//	@Summary		Cria um novo usuário
+//	@Description	Cadastra um novo usuário na plataforma
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Param			user	body		request.CreateUserRequestDTO	true	"Dados do usuário"
+//	@Success		201		{object}	map[string]string
+//	@Failure		400		{object}	utils.ErrorResponse
+//	@Failure		500		{object}	utils.ErrorResponse
+//	@Router			/users [post]
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var dto request.CreateUserRequestDTO
 
@@ -41,6 +53,19 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+// GetUserByID godoc
+//
+//	@Summary		Busca um usuário pelo ID
+//	@Description	Retorna os dados de um usuário a partir do seu UUID
+//	@Tags			users
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"ID do usuário (UUID)"
+//	@Success		200	{object}	domain.User
+//	@Failure		400	{object}	utils.ErrorResponse
+//	@Failure		404	{object}	utils.ErrorResponse
+//	@Failure		500	{object}	utils.ErrorResponse
+//	@Router			/users/{id} [get]
 func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 

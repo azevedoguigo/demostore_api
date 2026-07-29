@@ -5,6 +5,7 @@ import (
 	"github.com/azevedoguigo/demostore_api.git/internal/middleware"
 	chiMiddleware "github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 type Router struct {
@@ -44,6 +45,12 @@ func (s *Router) setupProductRoutes(productHandler *handler.ProductHandler) {
 	})
 }
 
+func (r *Router) setupSwaggerRoutes() {
+	r.chiRouter.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
+}
+
 func (r *Router) SetupRoutes(
 	userHandler *handler.UserHandler,
 	authHandler *handler.AuthHandler,
@@ -52,4 +59,5 @@ func (r *Router) SetupRoutes(
 	r.setupUserRoutes(userHandler)
 	r.setupAuthRoutes(authHandler)
 	r.setupProductRoutes(productHandler)
+	r.setupSwaggerRoutes()
 }
