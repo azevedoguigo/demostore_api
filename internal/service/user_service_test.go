@@ -63,7 +63,9 @@ func (suite *UserServiceTestSuite) TestCreateUser_Success() {
 		Password: "passwd123",
 	}
 
-	suite.repo.On("Create", mock.Anything).Return(nil).Once()
+	suite.repo.On("Create", mock.MatchedBy(func(user *domain.User) bool {
+		return user.Role == domain.RoleCustomer
+	})).Return(nil).Once()
 
 	err := suite.service.CreateUser(dto)
 
