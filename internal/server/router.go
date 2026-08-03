@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/handler"
 	"github.com/azevedoguigo/demostore_api.git/internal/middleware"
 	chiMiddleware "github.com/go-chi/chi/middleware"
@@ -39,7 +40,7 @@ func (s *Router) setupProductRoutes(productHandler *handler.ProductHandler) {
 	s.chiRouter.Route("/api/v1/products", func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware)
 
-		r.Post("/", productHandler.CreateProduct)
+		r.With(middleware.RequireRole(domain.RoleAdmin)).Post("/", productHandler.CreateProduct)
 		r.Get("/", productHandler.GetAllProducts)
 		r.Get("/{id}", productHandler.GetProductByID)
 	})
