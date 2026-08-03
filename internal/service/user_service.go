@@ -26,6 +26,7 @@ func (s *UserServiceImpl) CreateUser(dto *request.CreateUserRequestDTO) error {
 		Name:     dto.Name,
 		Email:    dto.Email,
 		Password: dto.Password,
+		Role:     domain.RoleCustomer,
 	}
 
 	user.BindID()

@@ -28,6 +28,7 @@ func NewProductHandler(service service.ProductService) *ProductHandler {
 //	@Param			product	body		request.CreateProductRequestDTO	true	"Dados do produto"
 //	@Success		201		{object}	map[string]string
 //	@Failure		400		{object}	utils.ErrorResponse
+//	@Failure		403		{object}	utils.ErrorResponse
 //	@Failure		500		{object}	utils.ErrorResponse
 //	@Router			/products [post]
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
