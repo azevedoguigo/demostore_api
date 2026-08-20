@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/config"
+	"github.com/azevedoguigo/demostore_api.git/internal/database"
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/handler"
 	"github.com/azevedoguigo/demostore_api.git/internal/repository"
@@ -36,7 +37,7 @@ func NewServer(cfg *config.Config) *Server {
 }
 
 func (s *Server) SetupServer() {
-	db, err := repository.NewPostgresDB(s.config)
+	db, err := database.NewPostgresDB(s.config)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
