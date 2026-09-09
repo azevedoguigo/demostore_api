@@ -126,6 +126,47 @@ func (s *ProductRepositoryTestSuite) TestGetProductByID_Success() {
 	assert.Equal(s.T(), product.ID, retrievedProduct.ID)
 }
 
+func (s *ProductRepositoryTestSuite) TestUpdateProduct_Success() {
+	product := &domain.Product{
+		Name:        "Test Product",
+		Description: "This is a test product description.",
+		Price:       19.99,
+		Stock:       100,
+	}
+	product.BindID()
+	err := s.repo.Create(product)
+	assert.Nil(s.T(), err)
+
+	product.Name = "Updated Product"
+	product.Price = 29.99
+	err = s.repo.Update(product)
+	assert.Nil(s.T(), err)
+
+	updated, err := s.repo.GetByID(product.ID)
+	assert.Nil(s.T(), err)
+	assert.Equal(s.T(), "Updated Product", updated.Name)
+	assert.Equal(s.T(), 29.99, updated.Price)
+}
+
+func (s *ProductRepositoryTestSuite) TestDeleteProduct_Success() {
+	product := &domain.Product{
+		Name:        "Test Product",
+		Description: "This is a test product description.",
+		Price:       19.99,
+		Stock:       100,
+	}
+	product.BindID()
+	err := s.repo.Create(product)
+	assert.Nil(s.T(), err)
+
+	err = s.repo.Delete(product.ID)
+	assert.Nil(s.T(), err)
+
+	deleted, err := s.repo.GetByID(product.ID)
+	assert.Nil(s.T(), deleted)
+	assert.ErrorAs(s.T(), err, &gorm.ErrRecordNotFound)
+}
+
 func (s *ProductRepositoryTestSuite) TestGetProductByID_NotFound() {
 	id := uuid.New()
 	product, err := s.repo.GetByID(id)

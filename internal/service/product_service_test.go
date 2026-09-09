@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
+	"gorm.io/gorm"
 )
 
 type MockProductRepository struct {
@@ -28,7 +29,21 @@ func (m *MockProductRepository) GetAll() ([]domain.Product, error) {
 
 func (m *MockProductRepository) GetByID(id uuid.UUID) (*domain.Product, error) {
 	args := m.Called(id)
-	return args.Get(0).(*domain.Product), args.Error(1)
+	p := args.Get(0)
+	if p == nil {
+		return nil, args.Error(1)
+	}
+	return p.(*domain.Product), args.Error(1)
+}
+
+func (m *MockProductRepository) Update(product *domain.Product) error {
+	args := m.Called(product)
+	return args.Error(0)
+}
+
+func (m *MockProductRepository) Delete(id uuid.UUID) error {
+	args := m.Called(id)
+	return args.Error(0)
 }
 
 type ProductServiceTestSuite struct {
@@ -150,6 +165,107 @@ func (suite *ProductServiceTestSuite) TestGetProductByID_NotFound() {
 	suite.Error(err)
 	suite.Nil(result)
 	suite.Equal(err, assert.AnError)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *ProductServiceTestSuite) TestUpdateProduct_Success() {
+	productID := uuid.New()
+	existing := &domain.Product{
+		ID:          productID,
+		Name:        "Old Name",
+		Description: "Old description",
+		Price:       10.0,
+		Stock:       5,
+	}
+	dto := request.UpdateProductRequestDTO{
+		Name:        "New Name",
+		Description: "New description",
+		Price:       20.0,
+		Stock:       15,
+	}
+
+	suite.repo.On("GetByID", productID).Return(existing, nil).Once()
+	suite.repo.On("Update", mock.MatchedBy(func(p *domain.Product) bool {
+		return p.Name == dto.Name && p.Description == dto.Description &&
+			p.Price == dto.Price && p.Stock == dto.Stock
+	})).Return(nil).Once()
+
+	err := suite.service.UpdateProduct(productID.String(), dto)
+
+	suite.NoError(err)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *ProductServiceTestSuite) TestUpdateProduct_NotFound() {
+	productID := uuid.New()
+	dto := request.UpdateProductRequestDTO{
+		Name:        "New Name",
+		Description: "New description",
+		Price:       20.0,
+		Stock:       15,
+	}
+
+	suite.repo.On("GetByID", productID).Return((*domain.Product)(nil), gorm.ErrRecordNotFound).Once()
+
+	err := suite.service.UpdateProduct(productID.String(), dto)
+
+	suite.ErrorIs(err, gorm.ErrRecordNotFound)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *ProductServiceTestSuite) TestUpdateProduct_RepositoryError() {
+	productID := uuid.New()
+	existing := &domain.Product{ID: productID}
+	dto := request.UpdateProductRequestDTO{
+		Name:        "New Name",
+		Description: "New description",
+		Price:       20.0,
+		Stock:       15,
+	}
+
+	suite.repo.On("GetByID", productID).Return(existing, nil).Once()
+	suite.repo.On("Update", mock.AnythingOfType("*domain.Product")).Return(assert.AnError).Once()
+
+	err := suite.service.UpdateProduct(productID.String(), dto)
+
+	suite.ErrorIs(err, assert.AnError)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *ProductServiceTestSuite) TestDeleteProduct_Success() {
+	productID := uuid.New()
+	existing := &domain.Product{ID: productID}
+
+	suite.repo.On("GetByID", productID).Return(existing, nil).Once()
+	suite.repo.On("Delete", productID).Return(nil).Once()
+
+	err := suite.service.DeleteProduct(productID.String())
+
+	suite.NoError(err)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *ProductServiceTestSuite) TestDeleteProduct_NotFound() {
+	productID := uuid.New()
+
+	suite.repo.On("GetByID", productID).Return((*domain.Product)(nil), gorm.ErrRecordNotFound).Once()
+
+	err := suite.service.DeleteProduct(productID.String())
+
+	suite.ErrorIs(err, gorm.ErrRecordNotFound)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *ProductServiceTestSuite) TestDeleteProduct_RepositoryError() {
+	productID := uuid.New()
+	existing := &domain.Product{ID: productID}
+
+	suite.repo.On("GetByID", productID).Return(existing, nil).Once()
+	suite.repo.On("Delete", productID).Return(assert.AnError).Once()
+
+	err := suite.service.DeleteProduct(productID.String())
+
+	suite.ErrorIs(err, assert.AnError)
 	suite.repo.AssertExpectations(suite.T())
 }
 
