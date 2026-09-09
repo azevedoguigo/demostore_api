@@ -48,6 +48,18 @@ func (s *Router) setupProductRoutes(productHandler *handler.ProductHandler) {
 	})
 }
 
+func (r *Router) setupCategoryRoutes(categoryHandler *handler.CategoryHandler) {
+	r.chiRouter.Route("/api/v1/categories", func(r chi.Router) {
+		r.Use(middleware.AuthMiddleware)
+
+		r.With(middleware.RequireRole(domain.RoleAdmin)).Post("/", categoryHandler.CreateCategory)
+		r.Get("/", categoryHandler.GetAllCategories)
+		r.Get("/{id}", categoryHandler.GetCategoryByID)
+		r.With(middleware.RequireRole(domain.RoleAdmin)).Put("/{id}", categoryHandler.UpdateCategory)
+		r.With(middleware.RequireRole(domain.RoleAdmin)).Delete("/{id}", categoryHandler.DeleteCategory)
+	})
+}
+
 func (r *Router) setupSwaggerRoutes() {
 	r.chiRouter.Get("/swagger/*", httpSwagger.Handler(
 		httpSwagger.URL("/swagger/doc.json"),
@@ -58,9 +70,11 @@ func (r *Router) SetupRoutes(
 	userHandler *handler.UserHandler,
 	authHandler *handler.AuthHandler,
 	productHandler *handler.ProductHandler,
+	categoryHandler *handler.CategoryHandler,
 ) {
 	r.setupUserRoutes(userHandler)
 	r.setupAuthRoutes(authHandler)
 	r.setupProductRoutes(productHandler)
+	r.setupCategoryRoutes(categoryHandler)
 	r.setupSwaggerRoutes()
 }

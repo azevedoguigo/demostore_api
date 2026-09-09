@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrCategoryNotFound = errors.New("category not found")
+
 type ProductService interface {
 	CreateProduct(dto request.CreateProductRequestDTO) error
 	GetAllProducts() ([]domain.Product, error)
@@ -18,19 +20,34 @@ type ProductService interface {
 }
 
 type ProductServiceImpl struct {
-	repo domain.ProductRepository
+	repo         domain.ProductRepository
+	categoryRepo domain.CategoryRepository
 }
 
-func NewProductService(repo domain.ProductRepository) *ProductServiceImpl {
-	return &ProductServiceImpl{repo: repo}
+func NewProductService(repo domain.ProductRepository, categoryRepo domain.CategoryRepository) *ProductServiceImpl {
+	return &ProductServiceImpl{repo: repo, categoryRepo: categoryRepo}
 }
 
 func (s *ProductServiceImpl) CreateProduct(dto request.CreateProductRequestDTO) error {
+	categoryID, err := uuid.Parse(dto.CategoryID)
+	if err != nil {
+		return err
+	}
+
+	if _, err := s.categoryRepo.GetByID(categoryID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrCategoryNotFound
+		}
+
+		return err
+	}
+
 	product := &domain.Product{
 		Name:        dto.Name,
 		Description: dto.Description,
 		Price:       dto.Price,
 		Stock:       dto.Stock,
+		CategoryID:  categoryID,
 	}
 
 	product.BindID()
@@ -69,6 +86,19 @@ func (s *ProductServiceImpl) UpdateProduct(id string, dto request.UpdateProductR
 		return err
 	}
 
+	categoryID, err := uuid.Parse(dto.CategoryID)
+	if err != nil {
+		return err
+	}
+
+	if _, err := s.categoryRepo.GetByID(categoryID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrCategoryNotFound
+		}
+
+		return err
+	}
+
 	product, err := s.repo.GetByID(productID)
 	if err != nil {
 		return err
@@ -78,6 +108,7 @@ func (s *ProductServiceImpl) UpdateProduct(id string, dto request.UpdateProductR
 	product.Description = dto.Description
 	product.Price = dto.Price
 	product.Stock = dto.Stock
+	product.CategoryID = categoryID
 
 	return s.repo.Update(product)
 }

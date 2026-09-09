@@ -29,10 +29,11 @@ func NewProductHandler(service service.ProductService) *ProductHandler {
 //	@Accept			json
 //	@Produce		json
 //	@Security		BearerAuth
-//	@Param			product	body		request.CreateProductRequestDTO	true	"Dados do produto"
+//	@Param			product	body		request.CreateProductRequestDTO	true	"Dados do produto (category_id deve referenciar uma categoria existente)"
 //	@Success		201		{object}	map[string]string
 //	@Failure		400		{object}	utils.ErrorResponse
 //	@Failure		403		{object}	utils.ErrorResponse
+//	@Failure		404		{object}	utils.ErrorResponse
 //	@Failure		500		{object}	utils.ErrorResponse
 //	@Router			/products [post]
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +45,11 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.CreateProduct(dto); err != nil {
+		if errors.Is(err, service.ErrCategoryNotFound) {
+			utils.HandleErrorResponse(w, http.StatusNotFound, "Category not found")
+			return
+		}
+
 		utils.HandleErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -118,7 +124,7 @@ func (h *ProductHandler) GetProductByID(w http.ResponseWriter, r *http.Request) 
 //	@Produce		json
 //	@Security		BearerAuth
 //	@Param			id		path		string								true	"ID do produto (UUID)"
-//	@Param			product	body		request.UpdateProductRequestDTO	true	"Dados do produto"
+//	@Param			product	body		request.UpdateProductRequestDTO	true	"Dados do produto (category_id deve referenciar uma categoria existente)"
 //	@Success		200		{object}	map[string]string
 //	@Failure		400		{object}	utils.ErrorResponse
 //	@Failure		403		{object}	utils.ErrorResponse
@@ -140,6 +146,10 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.UpdateProduct(id, dto); err != nil {
+		if errors.Is(err, service.ErrCategoryNotFound) {
+			utils.HandleErrorResponse(w, http.StatusNotFound, "Category not found")
+			return
+		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			utils.HandleErrorResponse(w, http.StatusNotFound, "Product not found")
 			return

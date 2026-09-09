@@ -44,19 +44,23 @@ func (s *Server) SetupServer() {
 
 	var userRepo domain.UserRepository = repository.NewUserRepository(db)
 	var productRepo domain.ProductRepository = repository.NewProductRepository(db)
+	var categoryRepo domain.CategoryRepository = repository.NewCategoryRepository(db)
 
 	userService := service.NewUserService(userRepo)
 	authService := service.NewAuthService(userService)
-	productService := service.NewProductService(productRepo)
+	productService := service.NewProductService(productRepo, categoryRepo)
+	categoryService := service.NewCategoryService(categoryRepo)
 
 	userHandler := handler.NewUserHandler(userService)
 	authHandler := handler.NewAuthHandler(authService)
 	productHandler := handler.NewProductHandler(productService)
+	categoryHandler := handler.NewCategoryHandler(categoryService)
 
 	s.router.SetupRoutes(
 		userHandler,
 		authHandler,
 		productHandler,
+		categoryHandler,
 	)
 
 	s.db = db

@@ -12,6 +12,8 @@ type Product struct {
 	Description string    `json:"description" validate:"required,min=10,max=500"`
 	Price       float64   `json:"price" validate:"required,gt=0"`
 	Stock       int       `json:"stock" validate:"required,gte=0"`
+	CategoryID  uuid.UUID `gorm:"type:uuid;not null;index" json:"category_id"`
+	Category    *Category `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
 }
 
 type ProductRepository interface {
