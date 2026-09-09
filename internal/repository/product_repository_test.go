@@ -14,8 +14,9 @@ import (
 
 type ProductRepositoryTestSuite struct {
 	suite.Suite
-	db   *gorm.DB
-	repo *repository.ProductRepository
+	db         *gorm.DB
+	repo       *repository.ProductRepository
+	categoryID uuid.UUID
 }
 
 func (s *ProductRepositoryTestSuite) SetupTest() {
@@ -24,8 +25,15 @@ func (s *ProductRepositoryTestSuite) SetupTest() {
 		s.T().Fatal(err)
 	}
 	s.db = db
-	db.AutoMigrate(&domain.Product{})
+	db.AutoMigrate(&domain.Category{}, &domain.Product{})
 	s.repo = repository.NewProductRepository(db)
+
+	category := &domain.Category{Name: "Test Category", Description: "Category used by product repository tests"}
+	category.BindID()
+	if err := db.Create(category).Error; err != nil {
+		s.T().Fatal(err)
+	}
+	s.categoryID = category.ID
 }
 
 func (s *ProductRepositoryTestSuite) TestCreateProduct_Success() {
@@ -34,6 +42,7 @@ func (s *ProductRepositoryTestSuite) TestCreateProduct_Success() {
 		Description: "This is a test product description.",
 		Price:       19.99,
 		Stock:       100,
+		CategoryID:  s.categoryID,
 	}
 	product.BindID()
 	err := s.repo.Create(product)
@@ -48,6 +57,7 @@ func (s *ProductRepositoryTestSuite) TestCreateProduct_Error() {
 		Description: "This is a test product description.",
 		Price:       19.99,
 		Stock:       100,
+		CategoryID:  s.categoryID,
 	}
 	product.BindID()
 	err := s.repo.Create(product)
@@ -61,6 +71,7 @@ func (s *ProductRepositoryTestSuite) TestCreateProduct_Error() {
 		Description: "This is another product description.",
 		Price:       29.99,
 		Stock:       50,
+		CategoryID:  s.categoryID,
 	}
 	err = s.repo.Create(productWithSameID)
 
@@ -74,12 +85,14 @@ func (s *ProductRepositoryTestSuite) TestGetAllProducts_Success() {
 			Description: "Description for product 1",
 			Price:       10.0,
 			Stock:       20,
+			CategoryID:  s.categoryID,
 		},
 		{
 			Name:        "Product 2",
 			Description: "Description for product 2",
 			Price:       15.0,
 			Stock:       30,
+			CategoryID:  s.categoryID,
 		},
 	}
 
@@ -113,6 +126,7 @@ func (s *ProductRepositoryTestSuite) TestGetProductByID_Success() {
 		Description: "This is a test product description.",
 		Price:       19.99,
 		Stock:       100,
+		CategoryID:  s.categoryID,
 	}
 	product.BindID()
 	err := s.repo.Create(product)
@@ -132,6 +146,7 @@ func (s *ProductRepositoryTestSuite) TestUpdateProduct_Success() {
 		Description: "This is a test product description.",
 		Price:       19.99,
 		Stock:       100,
+		CategoryID:  s.categoryID,
 	}
 	product.BindID()
 	err := s.repo.Create(product)
@@ -154,6 +169,7 @@ func (s *ProductRepositoryTestSuite) TestDeleteProduct_Success() {
 		Description: "This is a test product description.",
 		Price:       19.99,
 		Stock:       100,
+		CategoryID:  s.categoryID,
 	}
 	product.BindID()
 	err := s.repo.Create(product)

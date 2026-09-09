@@ -66,6 +66,7 @@ func (suite *ProductHandlerTestSuite) TestCreateProduct_Success() {
 		Name:        "Test Product",
 		Description: "A product for testing",
 		Price:       99.99,
+		CategoryID:  "123e4567-e89b-12d3-a456-426614174999",
 	}
 	body, _ := json.Marshal(dto)
 	req := httptest.NewRequest(http.MethodPost, "/products", bytes.NewReader(body))
@@ -103,6 +104,7 @@ func (suite *ProductHandlerTestSuite) TestCreateProduct_InternalServerError() {
 		Name:        "Test Product",
 		Description: "A product for testing",
 		Price:       99.99,
+		CategoryID:  "123e4567-e89b-12d3-a456-426614174999",
 	}
 	body, _ := json.Marshal(dto)
 	req := httptest.NewRequest(http.MethodPost, "/products", bytes.NewReader(body))
@@ -253,6 +255,7 @@ func (suite *ProductHandlerTestSuite) TestUpdateProduct_Success() {
 		Description: "Updated description",
 		Price:       50.0,
 		Stock:       10,
+		CategoryID:  "123e4567-e89b-12d3-a456-426614174999",
 	}
 	body, _ := json.Marshal(dto)
 
@@ -279,6 +282,7 @@ func (suite *ProductHandlerTestSuite) TestUpdateProduct_InvalidID() {
 		Description: "Updated description",
 		Price:       50.0,
 		Stock:       10,
+		CategoryID:  "123e4567-e89b-12d3-a456-426614174999",
 	}
 	body, _ := json.Marshal(dto)
 
@@ -316,6 +320,7 @@ func (suite *ProductHandlerTestSuite) TestUpdateProduct_NotFound() {
 		Description: "Updated description",
 		Price:       50.0,
 		Stock:       10,
+		CategoryID:  "123e4567-e89b-12d3-a456-426614174999",
 	}
 	body, _ := json.Marshal(dto)
 
@@ -343,6 +348,7 @@ func (suite *ProductHandlerTestSuite) TestUpdateProduct_InternalServerError() {
 		Description: "Updated description",
 		Price:       50.0,
 		Stock:       10,
+		CategoryID:  "123e4567-e89b-12d3-a456-426614174999",
 	}
 	body, _ := json.Marshal(dto)
 

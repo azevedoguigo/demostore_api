@@ -46,41 +46,83 @@ func (m *MockProductRepository) Delete(id uuid.UUID) error {
 	return args.Error(0)
 }
 
+type MockCategoryRepository struct {
+	mock.Mock
+}
+
+func (m *MockCategoryRepository) Create(category *domain.Category) error {
+	args := m.Called(category)
+	return args.Error(0)
+}
+
+func (m *MockCategoryRepository) GetAll() ([]domain.Category, error) {
+	args := m.Called()
+	return args.Get(0).([]domain.Category), args.Error(1)
+}
+
+func (m *MockCategoryRepository) GetByID(id uuid.UUID) (*domain.Category, error) {
+	args := m.Called(id)
+	c := args.Get(0)
+	if c == nil {
+		return nil, args.Error(1)
+	}
+	return c.(*domain.Category), args.Error(1)
+}
+
+func (m *MockCategoryRepository) Update(category *domain.Category) error {
+	args := m.Called(category)
+	return args.Error(0)
+}
+
+func (m *MockCategoryRepository) Delete(id uuid.UUID) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
 type ProductServiceTestSuite struct {
 	suite.Suite
-	repo    *MockProductRepository
-	service *service.ProductServiceImpl
+	repo         *MockProductRepository
+	categoryRepo *MockCategoryRepository
+	service      *service.ProductServiceImpl
 }
 
 func (suite *ProductServiceTestSuite) SetupTest() {
 	suite.repo = new(MockProductRepository)
-	suite.service = service.NewProductService(suite.repo)
+	suite.categoryRepo = new(MockCategoryRepository)
+	suite.service = service.NewProductService(suite.repo, suite.categoryRepo)
 }
 
 func (suite *ProductServiceTestSuite) TestCreateProduct_Success() {
+	categoryID := uuid.New()
 	dto := request.CreateProductRequestDTO{
 		Name:        "Test Product",
 		Description: "This is a test product",
 		Price:       99.99,
 		Stock:       10,
+		CategoryID:  categoryID.String(),
 	}
 
+	suite.categoryRepo.On("GetByID", categoryID).Return(&domain.Category{ID: categoryID}, nil).Once()
 	suite.repo.On("Create", mock.AnythingOfType("*domain.Product")).Return(nil)
 
 	err := suite.service.CreateProduct(dto)
 
 	suite.NoError(err)
 	suite.repo.AssertExpectations(suite.T())
+	suite.categoryRepo.AssertExpectations(suite.T())
 }
 
 func (suite *ProductServiceTestSuite) TestCreateProduct_RepositoryError() {
+	categoryID := uuid.New()
 	dto := request.CreateProductRequestDTO{
 		Name:        "Test Product",
 		Description: "This is a test product",
 		Price:       99.99,
 		Stock:       10,
+		CategoryID:  categoryID.String(),
 	}
 
+	suite.categoryRepo.On("GetByID", categoryID).Return(&domain.Category{ID: categoryID}, nil).Once()
 	suite.repo.On("Create", mock.AnythingOfType("*domain.Product")).Return(assert.AnError)
 
 	err := suite.service.CreateProduct(dto)
@@ -88,6 +130,25 @@ func (suite *ProductServiceTestSuite) TestCreateProduct_RepositoryError() {
 	suite.Error(err)
 	suite.Equal(err, assert.AnError)
 	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *ProductServiceTestSuite) TestCreateProduct_CategoryNotFound() {
+	categoryID := uuid.New()
+	dto := request.CreateProductRequestDTO{
+		Name:        "Test Product",
+		Description: "This is a test product",
+		Price:       99.99,
+		Stock:       10,
+		CategoryID:  categoryID.String(),
+	}
+
+	suite.categoryRepo.On("GetByID", categoryID).Return((*domain.Category)(nil), gorm.ErrRecordNotFound).Once()
+
+	err := suite.service.CreateProduct(dto)
+
+	suite.ErrorIs(err, service.ErrCategoryNotFound)
+	suite.categoryRepo.AssertExpectations(suite.T())
+	suite.repo.AssertNotCalled(suite.T(), "Create", mock.Anything)
 }
 
 func (suite *ProductServiceTestSuite) TestGetAllProducts_Success() {
@@ -170,6 +231,7 @@ func (suite *ProductServiceTestSuite) TestGetProductByID_NotFound() {
 
 func (suite *ProductServiceTestSuite) TestUpdateProduct_Success() {
 	productID := uuid.New()
+	categoryID := uuid.New()
 	existing := &domain.Product{
 		ID:          productID,
 		Name:        "Old Name",
@@ -182,29 +244,35 @@ func (suite *ProductServiceTestSuite) TestUpdateProduct_Success() {
 		Description: "New description",
 		Price:       20.0,
 		Stock:       15,
+		CategoryID:  categoryID.String(),
 	}
 
+	suite.categoryRepo.On("GetByID", categoryID).Return(&domain.Category{ID: categoryID}, nil).Once()
 	suite.repo.On("GetByID", productID).Return(existing, nil).Once()
 	suite.repo.On("Update", mock.MatchedBy(func(p *domain.Product) bool {
 		return p.Name == dto.Name && p.Description == dto.Description &&
-			p.Price == dto.Price && p.Stock == dto.Stock
+			p.Price == dto.Price && p.Stock == dto.Stock && p.CategoryID == categoryID
 	})).Return(nil).Once()
 
 	err := suite.service.UpdateProduct(productID.String(), dto)
 
 	suite.NoError(err)
 	suite.repo.AssertExpectations(suite.T())
+	suite.categoryRepo.AssertExpectations(suite.T())
 }
 
 func (suite *ProductServiceTestSuite) TestUpdateProduct_NotFound() {
 	productID := uuid.New()
+	categoryID := uuid.New()
 	dto := request.UpdateProductRequestDTO{
 		Name:        "New Name",
 		Description: "New description",
 		Price:       20.0,
 		Stock:       15,
+		CategoryID:  categoryID.String(),
 	}
 
+	suite.categoryRepo.On("GetByID", categoryID).Return(&domain.Category{ID: categoryID}, nil).Once()
 	suite.repo.On("GetByID", productID).Return((*domain.Product)(nil), gorm.ErrRecordNotFound).Once()
 
 	err := suite.service.UpdateProduct(productID.String(), dto)
@@ -213,16 +281,39 @@ func (suite *ProductServiceTestSuite) TestUpdateProduct_NotFound() {
 	suite.repo.AssertExpectations(suite.T())
 }
 
+func (suite *ProductServiceTestSuite) TestUpdateProduct_CategoryNotFound() {
+	productID := uuid.New()
+	categoryID := uuid.New()
+	dto := request.UpdateProductRequestDTO{
+		Name:        "New Name",
+		Description: "New description",
+		Price:       20.0,
+		Stock:       15,
+		CategoryID:  categoryID.String(),
+	}
+
+	suite.categoryRepo.On("GetByID", categoryID).Return((*domain.Category)(nil), gorm.ErrRecordNotFound).Once()
+
+	err := suite.service.UpdateProduct(productID.String(), dto)
+
+	suite.ErrorIs(err, service.ErrCategoryNotFound)
+	suite.categoryRepo.AssertExpectations(suite.T())
+	suite.repo.AssertNotCalled(suite.T(), "GetByID", mock.Anything)
+}
+
 func (suite *ProductServiceTestSuite) TestUpdateProduct_RepositoryError() {
 	productID := uuid.New()
+	categoryID := uuid.New()
 	existing := &domain.Product{ID: productID}
 	dto := request.UpdateProductRequestDTO{
 		Name:        "New Name",
 		Description: "New description",
 		Price:       20.0,
 		Stock:       15,
+		CategoryID:  categoryID.String(),
 	}
 
+	suite.categoryRepo.On("GetByID", categoryID).Return(&domain.Category{ID: categoryID}, nil).Once()
 	suite.repo.On("GetByID", productID).Return(existing, nil).Once()
 	suite.repo.On("Update", mock.AnythingOfType("*domain.Product")).Return(assert.AnError).Once()
 
