@@ -43,6 +43,8 @@ func (s *Router) setupProductRoutes(productHandler *handler.ProductHandler) {
 		r.With(middleware.RequireRole(domain.RoleAdmin)).Post("/", productHandler.CreateProduct)
 		r.Get("/", productHandler.GetAllProducts)
 		r.Get("/{id}", productHandler.GetProductByID)
+		r.With(middleware.RequireRole(domain.RoleAdmin)).Put("/{id}", productHandler.UpdateProduct)
+		r.With(middleware.RequireRole(domain.RoleAdmin)).Delete("/{id}", productHandler.DeleteProduct)
 	})
 }
 

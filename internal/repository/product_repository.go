@@ -34,3 +34,11 @@ func (r *ProductRepository) GetByID(id uuid.UUID) (*domain.Product, error) {
 
 	return &product, nil
 }
+
+func (r *ProductRepository) Update(product *domain.Product) error {
+	return r.db.Save(product).Error
+}
+
+func (r *ProductRepository) Delete(id uuid.UUID) error {
+	return r.db.Delete(&domain.Product{}, "id = ?", id).Error
+}

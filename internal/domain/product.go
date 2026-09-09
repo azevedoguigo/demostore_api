@@ -18,6 +18,8 @@ type ProductRepository interface {
 	Create(product *Product) error
 	GetAll() ([]Product, error)
 	GetByID(id uuid.UUID) (*Product, error)
+	Update(product *Product) error
+	Delete(id uuid.UUID) error
 }
 
 func (p *Product) BindID() {
