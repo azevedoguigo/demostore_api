@@ -1,0 +1,29 @@
+package domain
+
+import (
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+type Product struct {
+	gorm.Model  `swaggerignore:"true"`
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Name        string    `json:"name" validate:"required,min=3,max=100"`
+	Description string    `json:"description" validate:"required,min=10,max=500"`
+	Price       float64   `json:"price" validate:"required,gt=0"`
+	Stock       int       `json:"stock" validate:"required,gte=0"`
+	CategoryID  uuid.UUID `gorm:"type:uuid;not null;index" json:"category_id"`
+	Category    *Category `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
+}
+
+type ProductRepository interface {
+	Create(product *Product) error
+	GetAll() ([]Product, error)
+	GetByID(id uuid.UUID) (*Product, error)
+	Update(product *Product) error
+	Delete(id uuid.UUID) error
+}
+
+func (p *Product) BindID() {
+	p.ID = uuid.New()
+}
