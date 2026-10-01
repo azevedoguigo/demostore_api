@@ -27,7 +27,6 @@ const (
 	PaymentMethodBoleto = "boleto"
 )
 
-// Per-method amount limits in cents, as documented by Stripe for BRL.
 const (
 	pixMinAmount    int64 = 50
 	pixMaxAmount    int64 = 300_000
@@ -35,12 +34,8 @@ const (
 	boletoMaxAmount int64 = 4_999_999
 )
 
-// BoletoConfirmationGrace is how long a pending order is kept after its boleto expires. Stripe
-// confirms a paid boleto (or reports it unpaid) one business day later, so this covers weekends
-// and holidays before the order is cancelled and its stock released.
 const BoletoConfirmationGrace = 5 * 24 * time.Hour
 
-// PaymentMethodTypesFor returns the payment methods that accept the given amount.
 func PaymentMethodTypesFor(amount int64) []string {
 	types := []string{PaymentMethodCard}
 	if amount >= pixMinAmount && amount <= pixMaxAmount {
@@ -53,25 +48,17 @@ func PaymentMethodTypesFor(amount int64) []string {
 	return types
 }
 
-// RefundSupported reports whether payments made with the given method can be refunded through the
-// provider. Stripe doesn't support refunds for boleto, which must be refunded outside of it.
 func RefundSupported(paymentMethodType string) bool {
 	return paymentMethodType != PaymentMethodBoleto
 }
 
 var (
-	// ErrPaymentProvider wraps any failure talking to the payment provider.
-	ErrPaymentProvider = errors.New("payment provider error")
-	// ErrPaymentProviderRejected marks provider errors that are a definitive answer (the request was
-	// refused), as opposed to network or server failures where the outcome is unknown.
-	ErrPaymentProviderRejected = errors.New("request rejected by the payment provider")
-	// ErrPaymentIntentUnexpectedState is returned when the provider refuses an operation
-	// because the payment intent is no longer in a state that allows it (e.g. cancelling a paid intent).
+	ErrPaymentProvider              = errors.New("payment provider error")
+	ErrPaymentProviderRejected      = errors.New("request rejected by the payment provider")
 	ErrPaymentIntentUnexpectedState = errors.New("payment intent is in an unexpected state")
 	ErrInvalidWebhookSignature      = errors.New("invalid webhook signature")
 )
 
-// Payment links an order to its payment at the provider. Amount is in cents.
 type Payment struct {
 	ID                uuid.UUID     `gorm:"type:uuid;primaryKey" json:"id"`
 	OrderID           uuid.UUID     `gorm:"type:uuid;not null;uniqueIndex" json:"order_id"`
@@ -96,7 +83,6 @@ func (p *Payment) BindID() {
 	p.ID = uuid.New()
 }
 
-// RemainingRefundable is the paid amount not yet refunded.
 func (p *Payment) RemainingRefundable() int64 {
 	return p.Amount - p.RefundedAmount
 }
@@ -106,8 +92,7 @@ type PaymentIntentRequest struct {
 	Amount             int64
 	Currency           string
 	PaymentMethodTypes []string
-	// ExpiresAt bounds how long a Pix QR code stays payable, aligned with the order expiration.
-	ExpiresAt time.Time
+	ExpiresAt          time.Time
 }
 
 type PaymentIntent struct {
@@ -118,7 +103,6 @@ type PaymentIntent struct {
 
 const PaymentIntentStatusCanceled = "canceled"
 
-// NextActionBoletoDisplayDetails is the next action of a payment intent with an issued boleto.
 const NextActionBoletoDisplayDetails = "boleto_display_details"
 
 type PaymentEventType string
@@ -134,40 +118,30 @@ const (
 )
 
 type PaymentEvent struct {
-	Type PaymentEventType
-	// Set for payment_intent.* events.
+	Type                PaymentEventType
 	PaymentIntentID     string
 	NextActionType      string
 	NextActionExpiresAt time.Time
-	// Set for refund.* events.
-	Refund *ProviderRefund
+	Refund              *ProviderRefund
 }
 
-// ProviderRefund is a refund as reported by the provider. LocalRefundID is our Refund ID,
-// sent as metadata so refunds can be matched even before their provider ID is stored.
 type ProviderRefund struct {
 	ID            string
 	Status        string
 	LocalRefundID string
 }
 
-// Provider refund statuses.
 const (
 	ProviderRefundSucceeded = "succeeded"
 	ProviderRefundFailed    = "failed"
 	ProviderRefundCanceled  = "canceled"
 )
 
-// PaymentGateway abstracts the payment provider (Stripe) so services can be tested without network calls.
 type PaymentGateway interface {
 	CreatePaymentIntent(req PaymentIntentRequest) (*PaymentIntent, error)
 	GetPaymentIntent(id string) (*PaymentIntent, error)
 	CancelPaymentIntent(id string) error
-	// GetPaymentMethodType returns the method (card, pix, boleto...) used to pay a succeeded intent.
 	GetPaymentMethodType(paymentIntentID string) (string, error)
-	// RefundPaymentIntent refunds amount cents. refundID is used as idempotency key and metadata.
 	RefundPaymentIntent(paymentIntentID string, amount int64, refundID uuid.UUID) (*ProviderRefund, error)
-	// ParseWebhookEvent verifies the signature and returns the event. Events unrelated to payment
-	// intents or refunds are returned with only their Type set.
 	ParseWebhookEvent(payload []byte, signature string) (*PaymentEvent, error)
 }

@@ -29,7 +29,6 @@ func GetEnvAsInt(key string, defaultValue int) int {
 	return value
 }
 
-// GetEnvAsDuration parses values such as "30m" or "2h", falling back to defaultValue when unset or invalid.
 func GetEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
 	valueStr := GetEnv(key, "")
 	if valueStr == "" {

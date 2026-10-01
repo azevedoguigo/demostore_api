@@ -36,8 +36,6 @@ func (r *RefundRepository) SetProviderRefundID(id uuid.UUID, providerRefundID st
 	return r.db.Model(&domain.Refund{}).Where("id = ?", id).Update("provider_refund_id", providerRefundID).Error
 }
 
-// settle moves a pending refund to status and runs apply in the same transaction, only if this
-// call is the one that changed the status, so side effects happen exactly once.
 func (r *RefundRepository) settle(refund *domain.Refund, status domain.RefundStatus, apply func(tx *gorm.DB) error) (bool, error) {
 	settled := false
 	err := r.db.Transaction(func(tx *gorm.DB) error {

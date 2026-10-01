@@ -25,7 +25,6 @@ type StripeConfig struct {
 }
 
 type OrderConfig struct {
-	// PendingTTL is how long a new order may stay unpaid before it is cancelled and its stock released.
 	PendingTTL time.Duration
 }
 
@@ -51,9 +50,8 @@ func LoadConfig() *Config {
 			ServerPort: utils.GetEnv("SERVER_PORT", "8080"),
 		},
 		Stripe: StripeConfig{
-			SecretKey:     utils.GetEnv("STRIPE_SECRET_KEY", ""),
-			WebhookSecret: utils.GetEnv("STRIPE_WEBHOOK_SECRET", ""),
-			// Stripe accepts 0 to 60 days.
+			SecretKey:              utils.GetEnv("STRIPE_SECRET_KEY", ""),
+			WebhookSecret:          utils.GetEnv("STRIPE_WEBHOOK_SECRET", ""),
 			BoletoExpiresAfterDays: min(max(utils.GetEnvAsInt("BOLETO_EXPIRES_AFTER_DAYS", 3), 0), 60),
 		},
 		Order: OrderConfig{

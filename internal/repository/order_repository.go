@@ -19,8 +19,6 @@ func NewOrderRepository(db *gorm.DB) *OrderRepository {
 	return &OrderRepository{db: db}
 }
 
-// sortedByProduct returns the items ordered by product ID so concurrent transactions
-// lock product rows in the same order and can't deadlock each other.
 func sortedByProduct(items []domain.OrderItem) []domain.OrderItem {
 	sorted := append([]domain.OrderItem(nil), items...)
 	sort.Slice(sorted, func(i, j int) bool {
@@ -93,7 +91,6 @@ func (r *OrderRepository) UpdateStatus(order *domain.Order, from domain.OrderSta
 		}
 
 		for _, item := range sortedByProduct(order.Items) {
-			// Refunded units were already returned to stock when their refund succeeded.
 			quantity := item.Quantity - item.RefundedQuantity
 			if quantity <= 0 {
 				continue

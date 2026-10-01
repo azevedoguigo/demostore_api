@@ -18,8 +18,6 @@ var (
 	ErrRefundNotSupported     = errors.New("boleto payments can't be refunded through Stripe; refund the customer outside of it")
 )
 
-// RefundItems refunds some units of a paid order, returning them to stock once the refund succeeds.
-// The amount comes from the prices snapshotted at checkout.
 func (s *PaymentServiceImpl) RefundItems(orderID string, dto request.CreateRefundRequestDTO) (*domain.Refund, error) {
 	order, err := s.findOrder(orderID)
 	if err != nil {
@@ -94,7 +92,6 @@ func buildItemRefund(order *domain.Order, payment *domain.Payment, dto request.C
 		itemsByProduct[order.Items[i].ProductID] = &order.Items[i]
 	}
 
-	// Repeated products are merged so the quantity check covers their total.
 	quantities := make(map[uuid.UUID]int)
 	var productOrder []uuid.UUID
 	for _, requested := range dto.Items {
@@ -155,9 +152,6 @@ func (s *PaymentServiceImpl) ensureRefundable(payment *domain.Payment) error {
 	return nil
 }
 
-// refundRemaining refunds whatever was paid and not yet refunded, without restocking (cancelling
-// the order restocks). It refuses to run while another refund is pending, since the remaining
-// amount isn't known until that one settles.
 func (s *PaymentServiceImpl) refundRemaining(payment *domain.Payment, reason string) error {
 	pending, resent, err := s.resendUnsentRefunds(payment)
 	if err != nil {
@@ -167,7 +161,6 @@ func (s *PaymentServiceImpl) refundRemaining(payment *domain.Payment, reason str
 		return ErrRefundInProgress
 	}
 
-	// A resent refund may have settled, changing the refunded amount.
 	if resent {
 		if payment, err = s.repo.GetByOrderID(payment.OrderID); err != nil {
 			return err
@@ -196,9 +189,6 @@ func (s *PaymentServiceImpl) refundRemaining(payment *domain.Payment, reason str
 	return err
 }
 
-// resendUnsentRefunds retries pending refunds that never got a provider ID (e.g. the request timed
-// out). The idempotency key makes this safe even if the provider did create them. It reports
-// whether any refund is still pending afterwards and whether any was resent.
 func (s *PaymentServiceImpl) resendUnsentRefunds(payment *domain.Payment) (stillPending, resent bool, err error) {
 	pending, err := s.refundRepo.GetPending(payment.ID)
 	if err != nil {
@@ -222,8 +212,6 @@ func (s *PaymentServiceImpl) resendUnsentRefunds(payment *domain.Payment) (still
 	return stillPending, resent, nil
 }
 
-// createRefund reserves the refund locally before calling the provider, so concurrent refunds
-// can't exceed the refundable quantities.
 func (s *PaymentServiceImpl) createRefund(payment *domain.Payment, refund *domain.Refund) (*domain.Refund, error) {
 	if err := s.refundRepo.Reserve(refund); err != nil {
 		return nil, err
@@ -239,8 +227,6 @@ func (s *PaymentServiceImpl) createRefund(payment *domain.Payment, refund *domai
 func (s *PaymentServiceImpl) sendRefund(payment *domain.Payment, refund *domain.Refund) error {
 	providerRefund, err := s.gateway.RefundPaymentIntent(payment.ProviderPaymentID, refund.Amount, refund.ID)
 	if err != nil {
-		// A rejection is definitive, so the reservation is released. Otherwise the outcome is unknown:
-		// the refund stays pending, to be settled by its webhook or resent later.
 		if errors.Is(err, domain.ErrPaymentProviderRejected) {
 			if _, markErr := s.refundRepo.MarkFailed(refund); markErr != nil {
 				log.Printf("refund %s: failed to release reservation: %v", refund.ID, markErr)

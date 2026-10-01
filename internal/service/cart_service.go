@@ -33,7 +33,6 @@ func NewCartService(repo domain.CartRepository, productRepo domain.ProductReposi
 	return &CartServiceImpl{repo: repo, productRepo: productRepo}
 }
 
-// getOrCreateCart returns the user's cart, creating an empty one on first use.
 func (s *CartServiceImpl) getOrCreateCart(userID uuid.UUID) (*domain.Cart, error) {
 	cart, err := s.repo.GetByUserID(userID)
 	if err == nil {
@@ -47,7 +46,6 @@ func (s *CartServiceImpl) getOrCreateCart(userID uuid.UUID) (*domain.Cart, error
 	cart.BindID()
 
 	if err := s.repo.Create(cart); err != nil {
-		// A concurrent request may have created the cart first (unique user_id).
 		if existing, getErr := s.repo.GetByUserID(userID); getErr == nil {
 			return existing, nil
 		}

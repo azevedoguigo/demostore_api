@@ -8,12 +8,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// DefaultCurrency is the ISO currency code (lowercase, as Stripe expects) used for orders.
 const DefaultCurrency = "brl"
 
-// Order total limits in cents. The minimum is the smallest charge Stripe accepts in BRL (card
-// and Pix), the maximum is Stripe's amount limit. Pix and boleto have narrower ranges, handled
-// by PaymentMethodTypesFor.
 const (
 	MinOrderAmount int64 = 50
 	MaxOrderAmount int64 = 99_999_999

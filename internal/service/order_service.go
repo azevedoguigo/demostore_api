@@ -30,13 +30,10 @@ type OrderService interface {
 }
 
 const (
-	expirationBatchSize = 100
-	// expirationRetryDelay postpones an expired order whose payment is still being processed
-	// (e.g. an issued boleto), so it doesn't keep occupying the head of the expiration batch.
+	expirationBatchSize  = 100
 	expirationRetryDelay = time.Hour
 )
 
-// OrderPaymentCanceler releases an order's payment (cancel or refund) before the order is cancelled.
 type OrderPaymentCanceler interface {
 	CancelForOrder(orderID uuid.UUID) error
 }
@@ -48,8 +45,12 @@ type OrderServiceImpl struct {
 	pendingTTL time.Duration
 }
 
-// NewOrderService creates the service; pendingTTL is how long a new order may stay unpaid before it expires.
-func NewOrderService(repo domain.OrderRepository, cartRepo domain.CartRepository, payments OrderPaymentCanceler, pendingTTL time.Duration) *OrderServiceImpl {
+func NewOrderService(
+	repo domain.OrderRepository,
+	cartRepo domain.CartRepository,
+	payments OrderPaymentCanceler,
+	pendingTTL time.Duration,
+) *OrderServiceImpl {
 	return &OrderServiceImpl{repo: repo, cartRepo: cartRepo, payments: payments, pendingTTL: pendingTTL}
 }
 
@@ -76,7 +77,6 @@ func (s *OrderServiceImpl) Checkout(userID uuid.UUID) (*domain.Order, error) {
 	order.BindID()
 
 	for _, cartItem := range cart.Items {
-		// A soft-deleted product is not preloaded, so it can no longer be bought.
 		if cartItem.Product == nil {
 			return nil, ErrProductNotFound
 		}
@@ -95,7 +95,6 @@ func (s *OrderServiceImpl) Checkout(userID uuid.UUID) (*domain.Order, error) {
 		order.Items = append(order.Items, item)
 	}
 
-	// Validated before touching the stock, so an unpayable order never reserves anything.
 	if order.TotalAmount < domain.MinOrderAmount || order.TotalAmount > domain.MaxOrderAmount {
 		return nil, ErrOrderAmountOutOfRange
 	}
@@ -136,7 +135,6 @@ func (s *OrderServiceImpl) findOrder(id string) (*domain.Order, error) {
 	return order, nil
 }
 
-// GetOrder returns ErrOrderNotFound for orders of other users, so customers can't probe which IDs exist.
 func (s *OrderServiceImpl) GetOrder(userID uuid.UUID, isAdmin bool, id string) (*domain.Order, error) {
 	order, err := s.findOrder(id)
 	if err != nil {
@@ -150,7 +148,6 @@ func (s *OrderServiceImpl) GetOrder(userID uuid.UUID, isAdmin bool, id string) (
 	return order, nil
 }
 
-// CancelOrder lets a customer cancel their own order while it is still pending (not yet paid).
 func (s *OrderServiceImpl) CancelOrder(userID uuid.UUID, id string) (*domain.Order, error) {
 	order, err := s.GetOrder(userID, false, id)
 	if err != nil {
