@@ -20,7 +20,7 @@ func NewPostgresDB(cfg *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	if err := db.AutoMigrate(&domain.User{}, &domain.Category{}, &domain.Product{}); err != nil {
+	if err := db.AutoMigrate(&domain.User{}, &domain.Category{}, &domain.Product{}, &domain.Cart{}, &domain.CartItem{}); err != nil {
 		return nil, fmt.Errorf("failed to auto migrate database: %w", err)
 	}
 

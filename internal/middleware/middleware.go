@@ -1,12 +1,15 @@
 package middleware
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"sync"
 
 	"github.com/azevedoguigo/demostore_api.git/pkg/utils"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/google/uuid"
 )
 
 var (
@@ -77,4 +80,19 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// UserIDFromContext extracts the authenticated user's ID (the "jti" claim) from the request context.
+func UserIDFromContext(ctx context.Context) (uuid.UUID, error) {
+	_, claims, err := jwtauth.FromContext(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	id, ok := claims["jti"].(string)
+	if !ok {
+		return uuid.Nil, errors.New("missing user id in token")
+	}
+
+	return uuid.Parse(id)
 }
