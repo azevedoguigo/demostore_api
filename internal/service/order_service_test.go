@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/dto/request"
@@ -44,6 +45,15 @@ func (m *MockOrderRepository) UpdateStatus(order *domain.Order, from domain.Orde
 	return m.Called(order, from, restock).Error(0)
 }
 
+func (m *MockOrderRepository) GetExpiredPending(now time.Time, limit int) ([]domain.Order, error) {
+	args := m.Called(now, limit)
+	return args.Get(0).([]domain.Order), args.Error(1)
+}
+
+func (m *MockOrderRepository) ExtendExpiration(orderID uuid.UUID, expiresAt time.Time) error {
+	return m.Called(orderID, expiresAt).Error(0)
+}
+
 type MockPaymentCanceler struct {
 	mock.Mock
 }
@@ -67,7 +77,7 @@ func (suite *OrderServiceTestSuite) SetupTest() {
 	suite.repo = new(MockOrderRepository)
 	suite.cartRepo = new(MockCartRepository)
 	suite.payments = new(MockPaymentCanceler)
-	suite.service = service.NewOrderService(suite.repo, suite.cartRepo, suite.payments)
+	suite.service = service.NewOrderService(suite.repo, suite.cartRepo, suite.payments, 30*time.Minute)
 	suite.userID = uuid.New()
 
 	productA := &domain.Product{ID: uuid.New(), Name: "Product A", Price: 19.99}
@@ -93,6 +103,7 @@ func (suite *OrderServiceTestSuite) TestCheckout_Success() {
 	suite.cartRepo.On("GetByUserID", suite.userID).Return(suite.cart, nil)
 	suite.repo.On("CreateFromCart", mock.AnythingOfType("*domain.Order"), suite.cart.ID).Return(nil)
 
+	before := time.Now()
 	order, err := suite.service.Checkout(suite.userID)
 
 	suite.NoError(err)
@@ -109,6 +120,46 @@ func (suite *OrderServiceTestSuite) TestCheckout_Success() {
 	suite.NotEqual(uuid.Nil, order.Items[0].ID)
 	suite.Equal(int64(30), order.Items[1].Subtotal)
 	suite.Equal(int64(4028), order.TotalAmount)
+	suite.Require().NotNil(order.ExpiresAt)
+	suite.WithinDuration(before.Add(30*time.Minute), *order.ExpiresAt, 5*time.Second)
+}
+
+func (suite *OrderServiceTestSuite) TestCheckout_AmountOutOfRange() {
+	cases := map[string]struct {
+		price    float64
+		quantity int
+	}{
+		"below minimum": {0.49, 1},
+		"above maximum": {500_000, 2},
+	}
+
+	for name, tc := range cases {
+		suite.Run(name, func() {
+			suite.SetupTest()
+			product := &domain.Product{ID: uuid.New(), Name: "Product", Price: tc.price}
+			cart := &domain.Cart{ID: uuid.New(), Items: []domain.CartItem{{ProductID: product.ID, Product: product, Quantity: tc.quantity}}}
+			suite.cartRepo.On("GetByUserID", suite.userID).Return(cart, nil)
+
+			_, err := suite.service.Checkout(suite.userID)
+
+			suite.ErrorIs(err, service.ErrOrderAmountOutOfRange)
+			suite.repo.AssertNotCalled(suite.T(), "CreateFromCart", mock.Anything, mock.Anything)
+		})
+	}
+}
+
+func (suite *OrderServiceTestSuite) TestCheckout_AmountAtLimits() {
+	for _, price := range []float64{0.5, 999_999.99} {
+		suite.SetupTest()
+		product := &domain.Product{ID: uuid.New(), Name: "Product", Price: price}
+		cart := &domain.Cart{ID: uuid.New(), Items: []domain.CartItem{{ProductID: product.ID, Product: product, Quantity: 1}}}
+		suite.cartRepo.On("GetByUserID", suite.userID).Return(cart, nil)
+		suite.repo.On("CreateFromCart", mock.Anything, cart.ID).Return(nil)
+
+		_, err := suite.service.Checkout(suite.userID)
+
+		suite.NoError(err, price)
+	}
 }
 
 func (suite *OrderServiceTestSuite) TestCheckout_NoCart() {
@@ -227,11 +278,11 @@ func (suite *OrderServiceTestSuite) TestCancelOrder_PendingRestoresStock() {
 
 func (suite *OrderServiceTestSuite) TestCancelOrder_PaymentCancelFailureKeepsOrder() {
 	suite.repo.On("GetByID", suite.order.ID).Return(suite.order, nil)
-	suite.payments.On("CancelForOrder", suite.order.ID).Return(service.ErrPaymentAlreadyProcessed)
+	suite.payments.On("CancelForOrder", suite.order.ID).Return(service.ErrPaymentInProgress)
 
 	_, err := suite.service.CancelOrder(suite.userID, suite.order.ID.String())
 
-	suite.ErrorIs(err, service.ErrPaymentAlreadyProcessed)
+	suite.ErrorIs(err, service.ErrPaymentInProgress)
 	suite.Equal(domain.OrderStatusPending, suite.order.Status)
 	suite.repo.AssertNotCalled(suite.T(), "UpdateStatus", mock.Anything, mock.Anything, mock.Anything)
 }
@@ -299,6 +350,61 @@ func (suite *OrderServiceTestSuite) TestUpdateOrderStatus_ConcurrentChange() {
 	_, err := suite.service.UpdateOrderStatus(suite.order.ID.String(), request.UpdateOrderStatusRequestDTO{Status: "paid"})
 
 	suite.ErrorIs(err, service.ErrInvalidStatusTransition)
+}
+
+func (suite *OrderServiceTestSuite) TestExpirePendingOrders_CancelsAndRestocks() {
+	now := time.Now()
+	other := domain.Order{ID: uuid.New(), Status: domain.OrderStatusPending}
+	suite.repo.On("GetExpiredPending", now, 100).Return([]domain.Order{*suite.order, other}, nil)
+	suite.payments.On("CancelForOrder", mock.Anything).Return(nil)
+	suite.repo.On("UpdateStatus", mock.MatchedBy(func(o *domain.Order) bool {
+		return o.Status == domain.OrderStatusCancelled
+	}), domain.OrderStatusPending, true).Return(nil)
+
+	expired, err := suite.service.ExpirePendingOrders(now)
+
+	suite.NoError(err)
+	suite.Equal(2, expired)
+	suite.payments.AssertNumberOfCalls(suite.T(), "CancelForOrder", 2)
+}
+
+func (suite *OrderServiceTestSuite) TestExpirePendingOrders_PostponesPaymentInProgress() {
+	now := time.Now()
+	other := domain.Order{ID: uuid.New(), Status: domain.OrderStatusPending}
+	suite.repo.On("GetExpiredPending", now, 100).Return([]domain.Order{*suite.order, other}, nil)
+	suite.payments.On("CancelForOrder", suite.order.ID).Return(service.ErrPaymentInProgress)
+	suite.payments.On("CancelForOrder", other.ID).Return(nil)
+	suite.repo.On("ExtendExpiration", suite.order.ID, now.Add(time.Hour)).Return(nil)
+	suite.repo.On("UpdateStatus", mock.Anything, domain.OrderStatusPending, true).Return(nil)
+
+	expired, err := suite.service.ExpirePendingOrders(now)
+
+	suite.NoError(err)
+	suite.Equal(1, expired)
+	suite.repo.AssertExpectations(suite.T())
+}
+
+func (suite *OrderServiceTestSuite) TestExpirePendingOrders_OtherErrorsDontStopTheBatch() {
+	now := time.Now()
+	other := domain.Order{ID: uuid.New(), Status: domain.OrderStatusPending}
+	suite.repo.On("GetExpiredPending", now, 100).Return([]domain.Order{*suite.order, other}, nil)
+	suite.payments.On("CancelForOrder", suite.order.ID).Return(domain.ErrPaymentProvider)
+	suite.payments.On("CancelForOrder", other.ID).Return(nil)
+	suite.repo.On("UpdateStatus", mock.Anything, domain.OrderStatusPending, true).Return(nil)
+
+	expired, err := suite.service.ExpirePendingOrders(now)
+
+	suite.NoError(err)
+	suite.Equal(1, expired)
+	suite.repo.AssertNotCalled(suite.T(), "ExtendExpiration", mock.Anything, mock.Anything)
+}
+
+func (suite *OrderServiceTestSuite) TestExpirePendingOrders_RepositoryError() {
+	suite.repo.On("GetExpiredPending", mock.Anything, 100).Return([]domain.Order(nil), assert.AnError)
+
+	_, err := suite.service.ExpirePendingOrders(time.Now())
+
+	suite.ErrorIs(err, assert.AnError)
 }
 
 func TestOrderServiceTestSuite(t *testing.T) {

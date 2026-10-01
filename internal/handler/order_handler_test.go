@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/dto/request"
@@ -62,6 +63,11 @@ func (m *MockOrderService) GetAllOrders() ([]domain.Order, error) {
 
 func (m *MockOrderService) UpdateOrderStatus(id string, dto request.UpdateOrderStatusRequestDTO) (*domain.Order, error) {
 	return m.orderResult(m.Called(id, dto))
+}
+
+func (m *MockOrderService) ExpirePendingOrders(now time.Time) (int, error) {
+	args := m.Called(now)
+	return args.Int(0), args.Error(1)
 }
 
 type OrderHandlerTestSuite struct {
@@ -132,10 +138,11 @@ func (suite *OrderHandlerTestSuite) TestCheckout_ErrorMapping() {
 		err    error
 		status int
 	}{
-		"empty cart":         {service.ErrEmptyCart, http.StatusBadRequest},
-		"product not found":  {service.ErrProductNotFound, http.StatusNotFound},
-		"insufficient stock": {service.ErrInsufficientStock, http.StatusConflict},
-		"unexpected":         {assert.AnError, http.StatusInternalServerError},
+		"empty cart":          {service.ErrEmptyCart, http.StatusBadRequest},
+		"amount out of range": {service.ErrOrderAmountOutOfRange, http.StatusBadRequest},
+		"product not found":   {service.ErrProductNotFound, http.StatusNotFound},
+		"insufficient stock":  {service.ErrInsufficientStock, http.StatusConflict},
+		"unexpected":          {assert.AnError, http.StatusInternalServerError},
 	}
 
 	for name, tc := range cases {
@@ -248,11 +255,13 @@ func (suite *OrderHandlerTestSuite) TestUpdateOrderStatus_ErrorMapping() {
 		err    error
 		status int
 	}{
-		"invalid status":     {service.ErrInvalidOrderStatus, http.StatusBadRequest},
-		"invalid transition": {service.ErrInvalidStatusTransition, http.StatusConflict},
-		"not found":          {service.ErrOrderNotFound, http.StatusNotFound},
-		"payment processed":  {service.ErrPaymentAlreadyProcessed, http.StatusConflict},
-		"refund failed":      {service.ErrPaymentProvider, http.StatusBadGateway},
+		"invalid status":      {service.ErrInvalidOrderStatus, http.StatusBadRequest},
+		"invalid transition":  {service.ErrInvalidStatusTransition, http.StatusConflict},
+		"not found":           {service.ErrOrderNotFound, http.StatusNotFound},
+		"payment in progress": {service.ErrPaymentInProgress, http.StatusConflict},
+		"refund in progress":  {service.ErrRefundInProgress, http.StatusConflict},
+		"boleto refund":       {service.ErrRefundNotSupported, http.StatusConflict},
+		"refund failed":       {service.ErrPaymentProvider, http.StatusBadGateway},
 	}
 
 	for name, tc := range cases {

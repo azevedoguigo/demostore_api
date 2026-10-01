@@ -2,6 +2,7 @@ package repository_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/repository"
@@ -181,6 +182,75 @@ func (s *OrderRepositoryTestSuite) TestUpdateStatus_StaleStatusConflict() {
 
 	assert.ErrorIs(s.T(), err, domain.ErrInvalidStatusTransition)
 	assert.Equal(s.T(), 5, s.stockOf(s.productA), "stock must not be restored twice")
+}
+
+func (s *OrderRepositoryTestSuite) TestUpdateStatus_CancelSkipsRefundedUnits() {
+	order := s.newOrder(map[*domain.Product]int{s.productA: 3})
+	s.Require().NoError(s.repo.CreateFromCart(order, s.cart.ID))
+	// One unit was refunded (and restocked) before the order was cancelled.
+	s.db.Model(&domain.OrderItem{}).Where("order_id = ?", order.ID).Update("refunded_quantity", 1)
+	s.db.Model(&domain.Product{}).Where("id = ?", s.productA.ID).Update("stock", 3)
+	order, _ = s.repo.GetByID(order.ID)
+
+	order.Status = domain.OrderStatusCancelled
+	s.Require().NoError(s.repo.UpdateStatus(order, domain.OrderStatusPending, true))
+
+	assert.Equal(s.T(), 5, s.stockOf(s.productA))
+}
+
+func (s *OrderRepositoryTestSuite) createWithExpiration(expiresAt *time.Time, status domain.OrderStatus) *domain.Order {
+	order := s.newOrder(map[*domain.Product]int{s.productA: 1})
+	order.ExpiresAt = expiresAt
+	order.Status = status
+	s.Require().NoError(s.repo.CreateFromCart(order, uuid.New()))
+	return order
+}
+
+func (s *OrderRepositoryTestSuite) TestGetExpiredPending() {
+	now := time.Now()
+	past, older, future := now.Add(-time.Minute), now.Add(-time.Hour), now.Add(time.Minute)
+
+	expired := s.createWithExpiration(&past, domain.OrderStatusPending)
+	oldest := s.createWithExpiration(&older, domain.OrderStatusPending)
+	s.createWithExpiration(&future, domain.OrderStatusPending)
+	s.createWithExpiration(&past, domain.OrderStatusPaid)
+	s.createWithExpiration(nil, domain.OrderStatusPending)
+
+	orders, err := s.repo.GetExpiredPending(now, 10)
+
+	assert.Nil(s.T(), err)
+	s.Require().Len(orders, 2)
+	assert.Equal(s.T(), oldest.ID, orders[0].ID, "oldest expiration first")
+	assert.Equal(s.T(), expired.ID, orders[1].ID)
+	assert.Len(s.T(), orders[0].Items, 1)
+
+	limited, _ := s.repo.GetExpiredPending(now, 1)
+	assert.Len(s.T(), limited, 1)
+}
+
+func (s *OrderRepositoryTestSuite) TestExtendExpiration_OnlyMovesForward() {
+	now := time.Now().Truncate(time.Second)
+	current := now.Add(time.Hour)
+	order := s.createWithExpiration(&current, domain.OrderStatusPending)
+
+	s.Require().NoError(s.repo.ExtendExpiration(order.ID, now.Add(time.Minute)))
+	found, _ := s.repo.GetByID(order.ID)
+	assert.True(s.T(), found.ExpiresAt.Equal(current), "must not shorten")
+
+	later := now.Add(72 * time.Hour)
+	s.Require().NoError(s.repo.ExtendExpiration(order.ID, later))
+	found, _ = s.repo.GetByID(order.ID)
+	assert.True(s.T(), found.ExpiresAt.Equal(later))
+}
+
+func (s *OrderRepositoryTestSuite) TestExtendExpiration_IgnoresNonPendingOrders() {
+	now := time.Now().Truncate(time.Second)
+	order := s.createWithExpiration(&now, domain.OrderStatusPaid)
+
+	s.Require().NoError(s.repo.ExtendExpiration(order.ID, now.Add(time.Hour)))
+
+	found, _ := s.repo.GetByID(order.ID)
+	assert.True(s.T(), found.ExpiresAt.Equal(now))
 }
 
 func TestOrderRepositoryTestSuite(t *testing.T) {
