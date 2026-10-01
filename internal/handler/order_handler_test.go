@@ -251,6 +251,8 @@ func (suite *OrderHandlerTestSuite) TestUpdateOrderStatus_ErrorMapping() {
 		"invalid status":     {service.ErrInvalidOrderStatus, http.StatusBadRequest},
 		"invalid transition": {service.ErrInvalidStatusTransition, http.StatusConflict},
 		"not found":          {service.ErrOrderNotFound, http.StatusNotFound},
+		"payment processed":  {service.ErrPaymentAlreadyProcessed, http.StatusConflict},
+		"refund failed":      {service.ErrPaymentProvider, http.StatusBadGateway},
 	}
 
 	for name, tc := range cases {
