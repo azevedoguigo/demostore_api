@@ -2,6 +2,8 @@ package service
 
 import (
 	"errors"
+	"log"
+	"time"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/dto/request"
@@ -11,6 +13,7 @@ import (
 
 var (
 	ErrEmptyCart               = errors.New("cart is empty")
+	ErrOrderAmountOutOfRange   = errors.New("order total must be between R$ 0,50 and R$ 999.999,99")
 	ErrOrderNotFound           = errors.New("order not found")
 	ErrInvalidOrderStatus      = errors.New("invalid order status")
 	ErrInvalidStatusTransition = domain.ErrInvalidStatusTransition
@@ -23,7 +26,15 @@ type OrderService interface {
 	CancelOrder(userID uuid.UUID, id string) (*domain.Order, error)
 	GetAllOrders() ([]domain.Order, error)
 	UpdateOrderStatus(id string, dto request.UpdateOrderStatusRequestDTO) (*domain.Order, error)
+	ExpirePendingOrders(now time.Time) (int, error)
 }
+
+const (
+	expirationBatchSize = 100
+	// expirationRetryDelay postpones an expired order whose payment is still being processed
+	// (e.g. an issued boleto), so it doesn't keep occupying the head of the expiration batch.
+	expirationRetryDelay = time.Hour
+)
 
 // OrderPaymentCanceler releases an order's payment (cancel or refund) before the order is cancelled.
 type OrderPaymentCanceler interface {
@@ -31,13 +42,15 @@ type OrderPaymentCanceler interface {
 }
 
 type OrderServiceImpl struct {
-	repo     domain.OrderRepository
-	cartRepo domain.CartRepository
-	payments OrderPaymentCanceler
+	repo       domain.OrderRepository
+	cartRepo   domain.CartRepository
+	payments   OrderPaymentCanceler
+	pendingTTL time.Duration
 }
 
-func NewOrderService(repo domain.OrderRepository, cartRepo domain.CartRepository, payments OrderPaymentCanceler) *OrderServiceImpl {
-	return &OrderServiceImpl{repo: repo, cartRepo: cartRepo, payments: payments}
+// NewOrderService creates the service; pendingTTL is how long a new order may stay unpaid before it expires.
+func NewOrderService(repo domain.OrderRepository, cartRepo domain.CartRepository, payments OrderPaymentCanceler, pendingTTL time.Duration) *OrderServiceImpl {
+	return &OrderServiceImpl{repo: repo, cartRepo: cartRepo, payments: payments, pendingTTL: pendingTTL}
 }
 
 func (s *OrderServiceImpl) Checkout(userID uuid.UUID) (*domain.Order, error) {
@@ -81,6 +94,14 @@ func (s *OrderServiceImpl) Checkout(userID uuid.UUID) (*domain.Order, error) {
 		order.TotalAmount += item.Subtotal
 		order.Items = append(order.Items, item)
 	}
+
+	// Validated before touching the stock, so an unpayable order never reserves anything.
+	if order.TotalAmount < domain.MinOrderAmount || order.TotalAmount > domain.MaxOrderAmount {
+		return nil, ErrOrderAmountOutOfRange
+	}
+
+	expiresAt := time.Now().Add(s.pendingTTL)
+	order.ExpiresAt = &expiresAt
 
 	if err := s.repo.CreateFromCart(order, cart.ID); err != nil {
 		return nil, err
@@ -176,4 +197,33 @@ func (s *OrderServiceImpl) transition(order *domain.Order, next domain.OrderStat
 	}
 
 	return order, nil
+}
+
+// ExpirePendingOrders cancels a batch of pending orders past their expiration, releasing their stock
+// and payment intents. Failures are logged and retried on the next run.
+func (s *OrderServiceImpl) ExpirePendingOrders(now time.Time) (int, error) {
+	orders, err := s.repo.GetExpiredPending(now, expirationBatchSize)
+	if err != nil {
+		return 0, err
+	}
+
+	expired := 0
+	for i := range orders {
+		order := &orders[i]
+
+		if _, err := s.transition(order, domain.OrderStatusCancelled); err != nil {
+			log.Printf("order expiration: order %s not cancelled: %v", order.ID, err)
+
+			if errors.Is(err, ErrPaymentInProgress) {
+				if err := s.repo.ExtendExpiration(order.ID, now.Add(expirationRetryDelay)); err != nil {
+					log.Printf("order expiration: order %s not postponed: %v", order.ID, err)
+				}
+			}
+			continue
+		}
+
+		expired++
+	}
+
+	return expired, nil
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/google/uuid"
@@ -92,9 +93,15 @@ func (r *OrderRepository) UpdateStatus(order *domain.Order, from domain.OrderSta
 		}
 
 		for _, item := range sortedByProduct(order.Items) {
+			// Refunded units were already returned to stock when their refund succeeded.
+			quantity := item.Quantity - item.RefundedQuantity
+			if quantity <= 0 {
+				continue
+			}
+
 			err := tx.Unscoped().Model(&domain.Product{}).
 				Where("id = ?", item.ProductID).
-				UpdateColumn("stock", gorm.Expr("stock + ?", item.Quantity)).Error
+				UpdateColumn("stock", gorm.Expr("stock + ?", quantity)).Error
 			if err != nil {
 				return err
 			}
@@ -102,4 +109,21 @@ func (r *OrderRepository) UpdateStatus(order *domain.Order, from domain.OrderSta
 
 		return nil
 	})
+}
+
+func (r *OrderRepository) GetExpiredPending(now time.Time, limit int) ([]domain.Order, error) {
+	var orders []domain.Order
+	err := r.db.Preload("Items").
+		Where("status = ? AND expires_at IS NOT NULL AND expires_at <= ?", domain.OrderStatusPending, now).
+		Order("expires_at").
+		Limit(limit).
+		Find(&orders).Error
+
+	return orders, err
+}
+
+func (r *OrderRepository) ExtendExpiration(orderID uuid.UUID, expiresAt time.Time) error {
+	return r.db.Model(&domain.Order{}).
+		Where("id = ? AND status = ? AND (expires_at IS NULL OR expires_at < ?)", orderID, domain.OrderStatusPending, expiresAt).
+		Update("expires_at", expiresAt).Error
 }

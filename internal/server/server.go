@@ -26,6 +26,8 @@ type Server struct {
 	config     *config.Config
 	db         *gorm.DB
 	httpServer *http.Server
+	orders     orderExpirer
+	jobs       *backgroundJobs
 }
 
 func NewServer(cfg *config.Config) *Server {
@@ -50,19 +52,24 @@ func (s *Server) SetupServer() {
 	var cartRepo domain.CartRepository = repository.NewCartRepository(db)
 	var orderRepo domain.OrderRepository = repository.NewOrderRepository(db)
 	var paymentRepo domain.PaymentRepository = repository.NewPaymentRepository(db)
+	var refundRepo domain.RefundRepository = repository.NewRefundRepository(db)
 
 	if s.config.Stripe.SecretKey == "" || s.config.Stripe.WebhookSecret == "" {
 		log.Println("WARNING: STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET is not set; payments will not work")
 	}
-	var paymentGateway domain.PaymentGateway = payment.NewStripeGateway(s.config.Stripe.SecretKey, s.config.Stripe.WebhookSecret)
+	var paymentGateway domain.PaymentGateway = payment.NewStripeGateway(
+		s.config.Stripe.SecretKey,
+		s.config.Stripe.WebhookSecret,
+		s.config.Stripe.BoletoExpiresAfterDays,
+	)
 
 	userService := service.NewUserService(userRepo)
 	authService := service.NewAuthService(userService)
 	productService := service.NewProductService(productRepo, categoryRepo)
 	categoryService := service.NewCategoryService(categoryRepo)
 	cartService := service.NewCartService(cartRepo, productRepo)
-	paymentService := service.NewPaymentService(paymentRepo, orderRepo, paymentGateway)
-	orderService := service.NewOrderService(orderRepo, cartRepo, paymentService)
+	paymentService := service.NewPaymentService(paymentRepo, orderRepo, refundRepo, paymentGateway)
+	orderService := service.NewOrderService(orderRepo, cartRepo, paymentService, s.config.Order.PendingTTL)
 
 	userHandler := handler.NewUserHandler(userService)
 	authHandler := handler.NewAuthHandler(authService)
@@ -83,6 +90,7 @@ func (s *Server) SetupServer() {
 	)
 
 	s.db = db
+	s.orders = orderService
 }
 
 func (s *Server) Start() {
@@ -90,6 +98,8 @@ func (s *Server) Start() {
 		Addr:    ":" + s.config.Postgres.ServerPort,
 		Handler: s.router.chiRouter,
 	}
+
+	s.jobs = startBackgroundJobs(s.orders)
 
 	go func() {
 		log.Printf("Server starting on port %s", s.config.Postgres.ServerPort)
@@ -113,6 +123,10 @@ func (s *Server) waitForShutdown() {
 
 	if err := s.httpServer.Shutdown(ctx); err != nil {
 		log.Printf("Server forced to shutdown: %v", err)
+	}
+
+	if s.jobs != nil {
+		s.jobs.Stop()
 	}
 
 	if s.db != nil {

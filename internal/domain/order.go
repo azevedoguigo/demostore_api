@@ -11,6 +11,14 @@ import (
 // DefaultCurrency is the ISO currency code (lowercase, as Stripe expects) used for orders.
 const DefaultCurrency = "brl"
 
+// Order total limits in cents. The minimum is the smallest charge Stripe accepts in BRL (card
+// and Pix), the maximum is Stripe's amount limit. Pix and boleto have narrower ranges, handled
+// by PaymentMethodTypesFor.
+const (
+	MinOrderAmount int64 = 50
+	MaxOrderAmount int64 = 99_999_999
+)
+
 type OrderStatus string
 
 const (
@@ -40,8 +48,10 @@ type Order struct {
 	TotalAmount int64       `gorm:"not null" json:"total_amount"`
 	Currency    string      `gorm:"type:varchar(3);not null" json:"currency"`
 	Items       []OrderItem `gorm:"foreignKey:OrderID" json:"items"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
+	// ExpiresAt is when a still pending order is cancelled automatically, releasing its stock.
+	ExpiresAt *time.Time `gorm:"index" json:"expires_at,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 }
 
 // OrderItem snapshots the product name and price at checkout time, so later product changes don't alter the order.
@@ -53,6 +63,8 @@ type OrderItem struct {
 	UnitPrice   int64     `gorm:"not null" json:"unit_price"`
 	Quantity    int       `gorm:"not null" json:"quantity"`
 	Subtotal    int64     `gorm:"not null" json:"subtotal"`
+	// RefundedQuantity counts units refunded or with a refund in progress.
+	RefundedQuantity int `gorm:"not null;default:0" json:"refunded_quantity"`
 }
 
 type OrderRepository interface {
@@ -61,8 +73,13 @@ type OrderRepository interface {
 	GetByID(id uuid.UUID) (*Order, error)
 	GetByUserID(userID uuid.UUID) ([]Order, error)
 	GetAll() ([]Order, error)
-	// UpdateStatus persists order.Status only if the stored status is still `from`, restoring stock when restock is true.
+	// UpdateStatus persists order.Status only if the stored status is still `from`. When restock is
+	// true, the stock of every unit not already refunded is restored.
 	UpdateStatus(order *Order, from OrderStatus, restock bool) error
+	// GetExpiredPending returns up to limit pending orders whose ExpiresAt is not after now, oldest first.
+	GetExpiredPending(now time.Time, limit int) ([]Order, error)
+	// ExtendExpiration moves a pending order's ExpiresAt forward to expiresAt; it never shortens it.
+	ExtendExpiration(orderID uuid.UUID, expiresAt time.Time) error
 }
 
 func (o *Order) BindID() {

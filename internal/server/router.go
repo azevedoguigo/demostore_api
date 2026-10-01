@@ -89,6 +89,8 @@ func (r *Router) setupOrderRoutes(orderHandler *handler.OrderHandler, paymentHan
 
 		r.Get("/", orderHandler.GetAllOrders)
 		r.Patch("/{id}/status", orderHandler.UpdateOrderStatus)
+		r.Post("/{id}/refunds", paymentHandler.CreateRefund)
+		r.Get("/{id}/refunds", paymentHandler.GetOrderRefunds)
 	})
 }
 

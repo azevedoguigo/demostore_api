@@ -47,10 +47,12 @@ func (h *OrderHandler) handleError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, service.ErrOrderNotFound), errors.Is(err, service.ErrProductNotFound):
 		utils.HandleErrorResponse(w, http.StatusNotFound, err.Error())
-	case errors.Is(err, service.ErrEmptyCart), errors.Is(err, service.ErrInvalidOrderStatus):
+	case errors.Is(err, service.ErrEmptyCart), errors.Is(err, service.ErrInvalidOrderStatus),
+		errors.Is(err, service.ErrOrderAmountOutOfRange):
 		utils.HandleErrorResponse(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, service.ErrInsufficientStock), errors.Is(err, service.ErrInvalidStatusTransition),
-		errors.Is(err, service.ErrPaymentAlreadyProcessed):
+		errors.Is(err, service.ErrPaymentInProgress), errors.Is(err, service.ErrRefundInProgress),
+		errors.Is(err, service.ErrRefundNotSupported):
 		utils.HandleErrorResponse(w, http.StatusConflict, err.Error())
 	case errors.Is(err, service.ErrPaymentProvider):
 		log.Printf("stripe: %v", err)
@@ -85,7 +87,7 @@ func (h *OrderHandler) respondOrders(w http.ResponseWriter, orders []domain.Orde
 // Checkout godoc
 //
 //	@Summary		Finaliza a compra
-//	@Description	Cria um pedido a partir do carrinho, baixa o estoque e esvazia o carrinho. Valores em centavos
+//	@Description	Cria um pedido a partir do carrinho, baixa o estoque e esvazia o carrinho. Valores em centavos. O total deve estar entre R$ 0,50 e R$ 999.999,99, e o pedido expira se não for pago a tempo (expires_at)
 //	@Tags			orders
 //	@Produce		json
 //	@Security		BearerAuth
@@ -204,7 +206,7 @@ func (h *OrderHandler) GetAllOrders(w http.ResponseWriter, r *http.Request) {
 // UpdateOrderStatus godoc
 //
 //	@Summary		Atualiza o status de um pedido
-//	@Description	Avança o status de um pedido (pending → paid → shipped → delivered, ou cancelled). Cancelar um pedido pago estorna o pagamento. Somente admin
+//	@Description	Avança o status de um pedido (pending → paid → shipped → delivered, ou cancelled). Cancelar um pedido pago estorna o valor restante (não suportado para boleto). Somente admin
 //	@Tags			admin-orders
 //	@Accept			json
 //	@Produce		json
