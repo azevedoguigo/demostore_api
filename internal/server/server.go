@@ -13,6 +13,7 @@ import (
 	"github.com/azevedoguigo/demostore_api.git/internal/database"
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
 	"github.com/azevedoguigo/demostore_api.git/internal/handler"
+	"github.com/azevedoguigo/demostore_api.git/internal/payment"
 	"github.com/azevedoguigo/demostore_api.git/internal/repository"
 	"github.com/azevedoguigo/demostore_api.git/internal/service"
 	"gorm.io/gorm"
@@ -48,13 +49,20 @@ func (s *Server) SetupServer() {
 
 	var cartRepo domain.CartRepository = repository.NewCartRepository(db)
 	var orderRepo domain.OrderRepository = repository.NewOrderRepository(db)
+	var paymentRepo domain.PaymentRepository = repository.NewPaymentRepository(db)
+
+	if s.config.Stripe.SecretKey == "" || s.config.Stripe.WebhookSecret == "" {
+		log.Println("WARNING: STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET is not set; payments will not work")
+	}
+	var paymentGateway domain.PaymentGateway = payment.NewStripeGateway(s.config.Stripe.SecretKey, s.config.Stripe.WebhookSecret)
 
 	userService := service.NewUserService(userRepo)
 	authService := service.NewAuthService(userService)
 	productService := service.NewProductService(productRepo, categoryRepo)
 	categoryService := service.NewCategoryService(categoryRepo)
 	cartService := service.NewCartService(cartRepo, productRepo)
-	orderService := service.NewOrderService(orderRepo, cartRepo)
+	paymentService := service.NewPaymentService(paymentRepo, orderRepo, paymentGateway)
+	orderService := service.NewOrderService(orderRepo, cartRepo, paymentService)
 
 	userHandler := handler.NewUserHandler(userService)
 	authHandler := handler.NewAuthHandler(authService)
@@ -62,6 +70,7 @@ func (s *Server) SetupServer() {
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 	cartHandler := handler.NewCartHandler(cartService)
 	orderHandler := handler.NewOrderHandler(orderService)
+	paymentHandler := handler.NewPaymentHandler(paymentService)
 
 	s.router.SetupRoutes(
 		userHandler,
@@ -70,6 +79,7 @@ func (s *Server) SetupServer() {
 		categoryHandler,
 		cartHandler,
 		orderHandler,
+		paymentHandler,
 	)
 
 	s.db = db

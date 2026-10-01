@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/domain"
@@ -48,8 +49,12 @@ func (h *OrderHandler) handleError(w http.ResponseWriter, err error) {
 		utils.HandleErrorResponse(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, service.ErrEmptyCart), errors.Is(err, service.ErrInvalidOrderStatus):
 		utils.HandleErrorResponse(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, service.ErrInsufficientStock), errors.Is(err, service.ErrInvalidStatusTransition):
+	case errors.Is(err, service.ErrInsufficientStock), errors.Is(err, service.ErrInvalidStatusTransition),
+		errors.Is(err, service.ErrPaymentAlreadyProcessed):
 		utils.HandleErrorResponse(w, http.StatusConflict, err.Error())
+	case errors.Is(err, service.ErrPaymentProvider):
+		log.Printf("stripe: %v", err)
+		utils.HandleErrorResponse(w, http.StatusBadGateway, "Payment provider unavailable")
 	default:
 		utils.HandleErrorResponse(w, http.StatusInternalServerError, err.Error())
 	}
@@ -153,7 +158,7 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 // CancelOrder godoc
 //
 //	@Summary		Cancela um pedido
-//	@Description	Cancela um pedido do usuário autenticado enquanto ainda está pendente e devolve o estoque
+//	@Description	Cancela um pedido do usuário autenticado enquanto ainda está pendente, cancela o pagamento no Stripe e devolve o estoque
 //	@Tags			orders
 //	@Produce		json
 //	@Security		BearerAuth
@@ -163,6 +168,7 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404	{object}	utils.ErrorResponse
 //	@Failure		409	{object}	utils.ErrorResponse
 //	@Failure		500	{object}	utils.ErrorResponse
+//	@Failure		502	{object}	utils.ErrorResponse
 //	@Router			/orders/{id}/cancel [post]
 func (h *OrderHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.userID(w, r)
@@ -198,7 +204,7 @@ func (h *OrderHandler) GetAllOrders(w http.ResponseWriter, r *http.Request) {
 // UpdateOrderStatus godoc
 //
 //	@Summary		Atualiza o status de um pedido
-//	@Description	Avança o status de um pedido (pending → paid → shipped → delivered, ou cancelled). Somente admin
+//	@Description	Avança o status de um pedido (pending → paid → shipped → delivered, ou cancelled). Cancelar um pedido pago estorna o pagamento. Somente admin
 //	@Tags			admin-orders
 //	@Accept			json
 //	@Produce		json
@@ -211,6 +217,7 @@ func (h *OrderHandler) GetAllOrders(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404		{object}	utils.ErrorResponse
 //	@Failure		409		{object}	utils.ErrorResponse
 //	@Failure		500		{object}	utils.ErrorResponse
+//	@Failure		502		{object}	utils.ErrorResponse
 //	@Router			/admin/orders/{id}/status [patch]
 func (h *OrderHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
 	id, ok := h.orderID(w, r)

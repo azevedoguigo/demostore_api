@@ -6,6 +6,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/stretchr/testify v1.10.0
+	github.com/stripe/stripe-go/v87 v87.0.0
 	github.com/swaggo/http-swagger/v2 v2.0.2
 	github.com/swaggo/swag v1.16.6
 	golang.org/x/crypto v0.31.0
@@ -37,6 +38,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.15.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/swaggo/files/v2 v2.0.0 // indirect
 	golang.org/x/mod v0.21.0 // indirect

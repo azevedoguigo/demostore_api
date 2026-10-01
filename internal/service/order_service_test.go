@@ -44,10 +44,19 @@ func (m *MockOrderRepository) UpdateStatus(order *domain.Order, from domain.Orde
 	return m.Called(order, from, restock).Error(0)
 }
 
+type MockPaymentCanceler struct {
+	mock.Mock
+}
+
+func (m *MockPaymentCanceler) CancelForOrder(orderID uuid.UUID) error {
+	return m.Called(orderID).Error(0)
+}
+
 type OrderServiceTestSuite struct {
 	suite.Suite
 	repo     *MockOrderRepository
 	cartRepo *MockCartRepository
+	payments *MockPaymentCanceler
 	service  *service.OrderServiceImpl
 	userID   uuid.UUID
 	cart     *domain.Cart
@@ -57,7 +66,8 @@ type OrderServiceTestSuite struct {
 func (suite *OrderServiceTestSuite) SetupTest() {
 	suite.repo = new(MockOrderRepository)
 	suite.cartRepo = new(MockCartRepository)
-	suite.service = service.NewOrderService(suite.repo, suite.cartRepo)
+	suite.payments = new(MockPaymentCanceler)
+	suite.service = service.NewOrderService(suite.repo, suite.cartRepo, suite.payments)
 	suite.userID = uuid.New()
 
 	productA := &domain.Product{ID: uuid.New(), Name: "Product A", Price: 19.99}
@@ -204,6 +214,7 @@ func (suite *OrderServiceTestSuite) TestGetOrder_InvalidID() {
 
 func (suite *OrderServiceTestSuite) TestCancelOrder_PendingRestoresStock() {
 	suite.repo.On("GetByID", suite.order.ID).Return(suite.order, nil)
+	suite.payments.On("CancelForOrder", suite.order.ID).Return(nil)
 	suite.repo.On("UpdateStatus", suite.order, domain.OrderStatusPending, true).Return(nil)
 
 	order, err := suite.service.CancelOrder(suite.userID, suite.order.ID.String())
@@ -211,6 +222,18 @@ func (suite *OrderServiceTestSuite) TestCancelOrder_PendingRestoresStock() {
 	suite.NoError(err)
 	suite.Equal(domain.OrderStatusCancelled, order.Status)
 	suite.repo.AssertExpectations(suite.T())
+	suite.payments.AssertExpectations(suite.T())
+}
+
+func (suite *OrderServiceTestSuite) TestCancelOrder_PaymentCancelFailureKeepsOrder() {
+	suite.repo.On("GetByID", suite.order.ID).Return(suite.order, nil)
+	suite.payments.On("CancelForOrder", suite.order.ID).Return(service.ErrPaymentAlreadyProcessed)
+
+	_, err := suite.service.CancelOrder(suite.userID, suite.order.ID.String())
+
+	suite.ErrorIs(err, service.ErrPaymentAlreadyProcessed)
+	suite.Equal(domain.OrderStatusPending, suite.order.Status)
+	suite.repo.AssertNotCalled(suite.T(), "UpdateStatus", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func (suite *OrderServiceTestSuite) TestCancelOrder_PaidCannotBeCancelledByCustomer() {
@@ -239,11 +262,13 @@ func (suite *OrderServiceTestSuite) TestUpdateOrderStatus_Success() {
 
 	suite.NoError(err)
 	suite.Equal(domain.OrderStatusPaid, order.Status)
+	suite.payments.AssertNotCalled(suite.T(), "CancelForOrder", mock.Anything)
 }
 
 func (suite *OrderServiceTestSuite) TestUpdateOrderStatus_AdminCancelPaidRestoresStock() {
 	suite.order.Status = domain.OrderStatusPaid
 	suite.repo.On("GetByID", suite.order.ID).Return(suite.order, nil)
+	suite.payments.On("CancelForOrder", suite.order.ID).Return(nil)
 	suite.repo.On("UpdateStatus", suite.order, domain.OrderStatusPaid, true).Return(nil)
 
 	_, err := suite.service.UpdateOrderStatus(suite.order.ID.String(), request.UpdateOrderStatusRequestDTO{Status: "cancelled"})

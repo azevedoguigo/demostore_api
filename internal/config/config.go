@@ -17,8 +17,14 @@ type PostgresConfig struct {
 	ServerPort string
 }
 
+type StripeConfig struct {
+	SecretKey     string
+	WebhookSecret string
+}
+
 type Config struct {
 	Postgres PostgresConfig
+	Stripe   StripeConfig
 }
 
 func LoadConfig() *Config {
@@ -35,6 +41,10 @@ func LoadConfig() *Config {
 			DBName:     utils.GetEnv("DB_NAME", "postgres"),
 			DBSSLMode:  utils.GetEnv("DB_SSL_MODE", "disable"),
 			ServerPort: utils.GetEnv("SERVER_PORT", "8080"),
+		},
+		Stripe: StripeConfig{
+			SecretKey:     utils.GetEnv("STRIPE_SECRET_KEY", ""),
+			WebhookSecret: utils.GetEnv("STRIPE_WEBHOOK_SECRET", ""),
 		},
 	}
 }

@@ -25,13 +25,19 @@ type OrderService interface {
 	UpdateOrderStatus(id string, dto request.UpdateOrderStatusRequestDTO) (*domain.Order, error)
 }
 
+// OrderPaymentCanceler releases an order's payment (cancel or refund) before the order is cancelled.
+type OrderPaymentCanceler interface {
+	CancelForOrder(orderID uuid.UUID) error
+}
+
 type OrderServiceImpl struct {
 	repo     domain.OrderRepository
 	cartRepo domain.CartRepository
+	payments OrderPaymentCanceler
 }
 
-func NewOrderService(repo domain.OrderRepository, cartRepo domain.CartRepository) *OrderServiceImpl {
-	return &OrderServiceImpl{repo: repo, cartRepo: cartRepo}
+func NewOrderService(repo domain.OrderRepository, cartRepo domain.CartRepository, payments OrderPaymentCanceler) *OrderServiceImpl {
+	return &OrderServiceImpl{repo: repo, cartRepo: cartRepo, payments: payments}
 }
 
 func (s *OrderServiceImpl) Checkout(userID uuid.UUID) (*domain.Order, error) {
@@ -154,6 +160,12 @@ func (s *OrderServiceImpl) UpdateOrderStatus(id string, dto request.UpdateOrderS
 func (s *OrderServiceImpl) transition(order *domain.Order, next domain.OrderStatus) (*domain.Order, error) {
 	if !order.CanTransitionTo(next) {
 		return nil, ErrInvalidStatusTransition
+	}
+
+	if next == domain.OrderStatusCancelled {
+		if err := s.payments.CancelForOrder(order.ID); err != nil {
+			return nil, err
+		}
 	}
 
 	from := order.Status

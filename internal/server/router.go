@@ -72,7 +72,7 @@ func (r *Router) setupCartRoutes(cartHandler *handler.CartHandler) {
 	})
 }
 
-func (r *Router) setupOrderRoutes(orderHandler *handler.OrderHandler) {
+func (r *Router) setupOrderRoutes(orderHandler *handler.OrderHandler, paymentHandler *handler.PaymentHandler) {
 	r.chiRouter.Route("/api/v1/orders", func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware)
 
@@ -80,6 +80,7 @@ func (r *Router) setupOrderRoutes(orderHandler *handler.OrderHandler) {
 		r.Get("/", orderHandler.GetMyOrders)
 		r.Get("/{id}", orderHandler.GetOrder)
 		r.Post("/{id}/cancel", orderHandler.CancelOrder)
+		r.Post("/{id}/payment", paymentHandler.CreatePaymentIntent)
 	})
 
 	r.chiRouter.Route("/api/v1/admin/orders", func(r chi.Router) {
@@ -89,6 +90,10 @@ func (r *Router) setupOrderRoutes(orderHandler *handler.OrderHandler) {
 		r.Get("/", orderHandler.GetAllOrders)
 		r.Patch("/{id}/status", orderHandler.UpdateOrderStatus)
 	})
+}
+
+func (r *Router) setupWebhookRoutes(paymentHandler *handler.PaymentHandler) {
+	r.chiRouter.Post("/api/v1/webhooks/stripe", paymentHandler.StripeWebhook)
 }
 
 func (r *Router) setupSwaggerRoutes() {
@@ -104,12 +109,14 @@ func (r *Router) SetupRoutes(
 	categoryHandler *handler.CategoryHandler,
 	cartHandler *handler.CartHandler,
 	orderHandler *handler.OrderHandler,
+	paymentHandler *handler.PaymentHandler,
 ) {
 	r.setupUserRoutes(userHandler)
 	r.setupAuthRoutes(authHandler)
 	r.setupProductRoutes(productHandler)
 	r.setupCategoryRoutes(categoryHandler)
 	r.setupCartRoutes(cartHandler)
-	r.setupOrderRoutes(orderHandler)
+	r.setupOrderRoutes(orderHandler, paymentHandler)
+	r.setupWebhookRoutes(paymentHandler)
 	r.setupSwaggerRoutes()
 }
