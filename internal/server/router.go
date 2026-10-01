@@ -72,6 +72,25 @@ func (r *Router) setupCartRoutes(cartHandler *handler.CartHandler) {
 	})
 }
 
+func (r *Router) setupOrderRoutes(orderHandler *handler.OrderHandler) {
+	r.chiRouter.Route("/api/v1/orders", func(r chi.Router) {
+		r.Use(middleware.AuthMiddleware)
+
+		r.Post("/", orderHandler.Checkout)
+		r.Get("/", orderHandler.GetMyOrders)
+		r.Get("/{id}", orderHandler.GetOrder)
+		r.Post("/{id}/cancel", orderHandler.CancelOrder)
+	})
+
+	r.chiRouter.Route("/api/v1/admin/orders", func(r chi.Router) {
+		r.Use(middleware.AuthMiddleware)
+		r.Use(middleware.RequireRole(domain.RoleAdmin))
+
+		r.Get("/", orderHandler.GetAllOrders)
+		r.Patch("/{id}/status", orderHandler.UpdateOrderStatus)
+	})
+}
+
 func (r *Router) setupSwaggerRoutes() {
 	r.chiRouter.Get("/swagger/*", httpSwagger.Handler(
 		httpSwagger.URL("/swagger/doc.json"),
@@ -84,11 +103,13 @@ func (r *Router) SetupRoutes(
 	productHandler *handler.ProductHandler,
 	categoryHandler *handler.CategoryHandler,
 	cartHandler *handler.CartHandler,
+	orderHandler *handler.OrderHandler,
 ) {
 	r.setupUserRoutes(userHandler)
 	r.setupAuthRoutes(authHandler)
 	r.setupProductRoutes(productHandler)
 	r.setupCategoryRoutes(categoryHandler)
 	r.setupCartRoutes(cartHandler)
+	r.setupOrderRoutes(orderHandler)
 	r.setupSwaggerRoutes()
 }

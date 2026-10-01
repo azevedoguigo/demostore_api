@@ -96,3 +96,14 @@ func UserIDFromContext(ctx context.Context) (uuid.UUID, error) {
 
 	return uuid.Parse(id)
 }
+
+// RoleFromContext extracts the authenticated user's role from the request context.
+func RoleFromContext(ctx context.Context) string {
+	_, claims, err := jwtauth.FromContext(ctx)
+	if err != nil {
+		return ""
+	}
+
+	role, _ := claims["role"].(string)
+	return role
+}

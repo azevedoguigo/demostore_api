@@ -13,7 +13,7 @@ var (
 	ErrProductNotFound   = errors.New("product not found")
 	ErrCartItemNotFound  = errors.New("cart item not found")
 	ErrInvalidQuantity   = errors.New("quantity must be greater than zero")
-	ErrInsufficientStock = errors.New("insufficient stock")
+	ErrInsufficientStock = domain.ErrInsufficientStock
 )
 
 type CartService interface {
