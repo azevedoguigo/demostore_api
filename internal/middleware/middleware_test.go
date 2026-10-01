@@ -132,3 +132,13 @@ func TestUserIDFromContext(t *testing.T) {
 	_, err = middleware.UserIDFromContext(context.Background())
 	assert.Error(t, err)
 }
+
+func TestRoleFromContext(t *testing.T) {
+	token, _, _ := testTokenAuth.Encode(map[string]interface{}{"role": "admin"})
+	assert.Equal(t, "admin", middleware.RoleFromContext(jwtauth.NewContext(context.Background(), token, nil)))
+
+	noRole, _, _ := testTokenAuth.Encode(map[string]interface{}{})
+	assert.Equal(t, "", middleware.RoleFromContext(jwtauth.NewContext(context.Background(), noRole, nil)))
+
+	assert.Equal(t, "", middleware.RoleFromContext(context.Background()))
+}
