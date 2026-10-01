@@ -1,12 +1,15 @@
 package middleware_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/azevedoguigo/demostore_api.git/internal/middleware"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -112,4 +115,20 @@ func (suite *MiddlewareTestSuite) TestAuthMiddleware_InvalidToken() {
 
 func TestMiddlewareSuite(t *testing.T) {
 	suite.Run(t, new(MiddlewareTestSuite))
+}
+
+func TestUserIDFromContext(t *testing.T) {
+	id := uuid.New()
+
+	token, _, _ := testTokenAuth.Encode(map[string]interface{}{"jti": id.String()})
+	got, err := middleware.UserIDFromContext(jwtauth.NewContext(context.Background(), token, nil))
+	assert.NoError(t, err)
+	assert.Equal(t, id, got)
+
+	noID, _, _ := testTokenAuth.Encode(map[string]interface{}{"role": "customer"})
+	_, err = middleware.UserIDFromContext(jwtauth.NewContext(context.Background(), noID, nil))
+	assert.Error(t, err)
+
+	_, err = middleware.UserIDFromContext(context.Background())
+	assert.Error(t, err)
 }
